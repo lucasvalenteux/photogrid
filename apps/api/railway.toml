@@ -1,13 +1,18 @@
 # Railway service config — points at the API workspace inside the monorepo.
 # Railway will build the Dockerfile in this directory and expose it at the
-# service URL. Memory should be set to >=2 GB in the Railway dashboard.
+# service URL. With the lean buffalo_sc + detection/recognition-only setup
+# in services/face_clustering_service.py, 1 GB of RAM is sufficient.
 
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
+# NOTE: no `startCommand` here on purpose. Railway runs Dockerfile CMDs in
+# exec form (no shell expansion), so a value like `${PORT:-8000}` would be
+# passed literally to uvicorn and crash on boot. The Dockerfile's CMD is
+# already wrapped in `sh -c`, which handles the expansion correctly — let
+# it take over.
 [deploy]
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"

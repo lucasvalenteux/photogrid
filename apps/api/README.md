@@ -61,9 +61,16 @@ docker run -p 8000:8000 \
   photogrid-api
 ```
 
-The Dockerfile bakes the model into `/opt/insightface` at build time so
-cold starts don't pay the download cost. Expect ~1.0 GB image size and
-~1.5 GB resident memory once the model is loaded.
+The Dockerfile bakes the `buffalo_sc` (small) model into `/opt/insightface`
+at build time so cold starts don't pay the download cost. Expect ~700 MB
+image size and **~500-700 MB resident memory** once the model is loaded —
+fits in a 1 GB Railway plan.
+
+If you upgrade your hosting to a larger instance and want maximum
+recognition accuracy, edit `MODEL_PACK` in
+`app/services/face_clustering_service.py` to `"buffalo_l"`. You'll also
+need to update the model name in the `Dockerfile`'s pre-download step and
+rebuild.
 
 ## Deploying on Railway
 
@@ -79,9 +86,8 @@ cold starts don't pay the download cost. Expect ~1.0 GB image size and
    | `PHOTOGRID_ENV`                  | `production`                                       |
    | `PHOTOGRID_CORS_ORIGINS`         | `https://photogrid.store,https://photogrid-seven.vercel.app` |
 
-3. Bump the service plan to **at least 2 GB RAM**. InsightFace's
-   `buffalo_l` model needs ~1.5 GB resident and the OS plus uvicorn add
-   overhead.
+3. **1 GB RAM is enough** with the default `buffalo_sc` setup. Bump to
+   2 GB only if you switch back to `buffalo_l` for higher accuracy.
 4. Deploy. Railway will use the in-repo `Dockerfile` and the healthcheck
    at `/api/v1/health` will report green once uvicorn is up.
 5. Copy the public URL Railway assigns to the service and set it as
