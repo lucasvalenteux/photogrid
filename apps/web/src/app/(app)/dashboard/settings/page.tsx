@@ -18,6 +18,7 @@ import {
 
 import { PaymentSettingsCard } from '@/components/dashboard/payment-settings-card';
 import { PlansCard } from '@/components/dashboard/plans-card';
+import { PricingSettingsCard } from '@/components/dashboard/pricing-settings-card';
 import { StudioLogoUploader } from '@/components/dashboard/studio-logo-uploader';
 import { useAuth } from '@/lib/hooks/use-auth';
 import {
@@ -198,6 +199,8 @@ export default function SettingsPage() {
       </Card>
 
       {studio ? <PaymentSettingsCard studio={studio} /> : null}
+
+      <PricingSettingsCard studio={studio} />
 
       <Card>
         <CardHeader>

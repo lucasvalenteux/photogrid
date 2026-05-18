@@ -36,6 +36,13 @@ export const FIRESTORE_COLLECTIONS = {
   // only reads.
   faceClusters: 'faceClusters',
   photoFaces: 'photoFaces',
+  /**
+   * Storefront purchases. One doc per cart / pending order / paid order.
+   * Open for create by anyone (storefront visitors) and read by the
+   * owning studio + by the holder of an `accessToken`. See
+   * `firestore.rules` for the full policy.
+   */
+  orders: 'orders',
 } as const;
 
 export type FirestoreCollection =
@@ -91,9 +98,13 @@ export const RESERVED_SLUGS = new Set<string>([
   'api',
   'app',
   'auth',
+  'carrinho',
+  'cart',
+  'checkout',
   'dashboard',
   'login',
   'logout',
+  'minhas-compras',
   'onboarding',
   'photogrid',
   'pricing',

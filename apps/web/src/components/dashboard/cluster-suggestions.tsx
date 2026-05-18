@@ -64,7 +64,7 @@ interface ClusterSuggestionsProps {
 // Show this many suggestion rows by default; "Ver mais N" reveals the
 // rest. Keeps the section tight even when the AI finds 30+ people, which
 // happens often in school events.
-const INITIAL_VISIBLE = 8;
+const INITIAL_VISIBLE = 3;
 
 /**
  * Album suggestion list rendered above the manual "Álbuns" section.

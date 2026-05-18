@@ -86,6 +86,29 @@ export interface StudioPaymentSettings {
   automatic?: StudioAutomaticPaymentSettings;
 }
 
+/**
+ * Default monetary values applied across the studio's storefront.
+ * Stored as integer cents (BRL) to avoid floating-point drift on the
+ * checkout total. Each gallery can override these values individually
+ * via `GalleryDoc.pricing`.
+ */
+export interface StudioPricingSettings {
+  /** Default price (in cents) charged per individual photo. */
+  pricePerPhotoCents?: number;
+  /** Default price (in cents) charged when the visitor buys a full album. */
+  pricePerAlbumCents?: number;
+}
+
+/**
+ * Per-gallery price override. Missing fields fall back to the studio
+ * default; an explicit `0` is honoured (you can configure a free
+ * gallery without removing the studio-level defaults).
+ */
+export interface GalleryPricing {
+  pricePerPhotoCents?: number;
+  pricePerAlbumCents?: number;
+}
+
 export interface StudioDoc {
   id: string;
   ownerId: string;
@@ -109,6 +132,8 @@ export interface StudioDoc {
   security?: StudioSecuritySettings;
   /** Payment / payout configuration used by the future checkout. */
   payment?: StudioPaymentSettings;
+  /** Default monetary values for items sold across the storefront. */
+  pricing?: StudioPricingSettings;
   createdAt: string;
 }
 
@@ -156,7 +181,40 @@ export interface GalleryDoc {
    * interpreted as `public` by `effectiveVisibility`.
    */
   visibility?: Visibility;
+  /**
+   * Per-gallery price overrides for the cart. Missing fields fall back
+   * to the studio defaults (`StudioDoc.pricing`).
+   */
+  pricing?: GalleryPricing;
   createdAt: string;
+}
+
+/**
+ * Resolve the effective prices for items inside a gallery. Gallery
+ * overrides win; otherwise we use the studio default; otherwise zero.
+ * Returns explicit numbers (never `undefined`) so cart math stays
+ * total-safe.
+ */
+export function resolveGalleryPrices(
+  gallery: Pick<GalleryDoc, 'pricing'> | null | undefined,
+  studio: Pick<StudioDoc, 'pricing'> | null | undefined,
+): { pricePerPhotoCents: number; pricePerAlbumCents: number } {
+  const galleryPricing = gallery?.pricing ?? {};
+  const studioPricing = studio?.pricing ?? {};
+  return {
+    pricePerPhotoCents:
+      typeof galleryPricing.pricePerPhotoCents === 'number'
+        ? galleryPricing.pricePerPhotoCents
+        : typeof studioPricing.pricePerPhotoCents === 'number'
+          ? studioPricing.pricePerPhotoCents
+          : 0,
+    pricePerAlbumCents:
+      typeof galleryPricing.pricePerAlbumCents === 'number'
+        ? galleryPricing.pricePerAlbumCents
+        : typeof studioPricing.pricePerAlbumCents === 'number'
+          ? studioPricing.pricePerAlbumCents
+          : 0,
+  };
 }
 
 export interface AlbumDoc {
@@ -225,4 +283,71 @@ export interface FaceClusterDoc {
   albumId: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Orders / cart                                                              */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * Lifecycle of a public-storefront purchase, from "interested visitor"
+ * to "delivered files".
+ *
+ *   cart     — interest only. Items + phone captured, but the visitor
+ *              didn't reach checkout. Shown in the "Carrinhos não
+ *              finalizados" tab so the photographer can chase the lead.
+ *   pending  — visitor confirmed name/phone and clicked "pagamento
+ *              realizado". Awaiting Pix proof; admin marks it paid.
+ *   paid     — admin marked it paid. `accessToken` is then minted and
+ *              the customer can download originals.
+ *   cancelled — admin or customer dropped the order.
+ */
+export type OrderStatus = 'cart' | 'pending' | 'paid' | 'cancelled';
+
+export type OrderItemType = 'photo' | 'album';
+
+/**
+ * One line item on an order. Prices are snapshotted from
+ * `resolveGalleryPrices` at the moment of add-to-cart so later changes
+ * to the gallery / studio defaults can't retroactively alter checkouts.
+ */
+export interface OrderItem {
+  type: OrderItemType;
+  /** photoId or albumId, depending on `type`. */
+  itemId: string;
+  /** Resolved title used for display in cart/dashboard. */
+  title: string;
+  /** Best-effort thumbnail for the cart summary. */
+  thumbnailUrl: string | null;
+  /** Photo count when `type === 'album'` (purely informational). */
+  photoCount?: number | null;
+  /** Snapshot price for this line (BRL cents). */
+  priceCents: number;
+}
+
+export interface OrderDoc {
+  id: string;
+  studioId: string;
+  galleryId: string;
+  /** Storefront slug at the time of purchase — denormalised for the dashboard table. */
+  studioSlug: string;
+  /** Gallery title at the time of purchase. */
+  galleryTitle: string;
+  /** Customer phone in E.164 (e.g. `+5511999999999`). */
+  customerPhone: string;
+  /** Captured only at checkout, not on initial cart save. */
+  customerName: string | null;
+  items: OrderItem[];
+  totalCents: number;
+  status: OrderStatus;
+  /**
+   * Random URL-safe token that grants direct download access to the
+   * paid order via `/minhas-compras/[token]`. Minted only when the
+   * order transitions to `paid`.
+   */
+  accessToken: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Set when status transitions to `paid`. */
+  paidAt: string | null;
 }

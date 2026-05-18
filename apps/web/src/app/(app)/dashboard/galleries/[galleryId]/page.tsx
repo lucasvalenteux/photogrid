@@ -3,11 +3,16 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Plus, Sparkles, Users } from 'lucide-react';
+import { ChevronLeft, DollarSign, Plus, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { effectiveVisibility, ROUTES } from '@photogrid/config';
-import { Button } from '@photogrid/ui';
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@photogrid/ui';
 
 import { ClusterSuggestions } from '@/components/dashboard/cluster-suggestions';
 import { ConfirmDialog } from '@/components/dashboard/confirm-dialog';
@@ -16,6 +21,7 @@ import { CreateAlbumDialog } from '@/components/dashboard/create-album-dialog';
 import { EditGalleryDialog } from '@/components/dashboard/edit-gallery-dialog';
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { EntityActions } from '@/components/dashboard/entity-actions';
+import { GalleryPricingDialog } from '@/components/dashboard/gallery-pricing-dialog';
 import { VisibilityBadge } from '@/components/dashboard/visibility-selector';
 import { PhotoGrid } from '@/components/photos/photo-grid';
 import {
@@ -73,6 +79,7 @@ export default function GalleryDetailPage() {
   const [createOpen, setCreateOpen] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [pricingOpen, setPricingOpen] = React.useState(false);
 
   const reloadGallery = React.useCallback(async () => {
     const next = await getGallery(galleryId);
@@ -303,12 +310,28 @@ export default function GalleryDetailPage() {
         </div>
 
         {isOwner && gallery ? (
-          <EntityActions
-            shareUrl={shareUrl}
-            shareLabel="Link da galeria"
-            onEdit={() => setEditOpen(true)}
-            onDelete={() => setDeleteOpen(true)}
-          />
+          <div className="flex items-center gap-1.5">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label="Configurar valores"
+                  onClick={() => setPricingOpen(true)}
+                >
+                  <DollarSign className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Valores desta galeria</TooltipContent>
+            </Tooltip>
+            <EntityActions
+              shareUrl={shareUrl}
+              shareLabel="Link da galeria"
+              onEdit={() => setEditOpen(true)}
+              onDelete={() => setDeleteOpen(true)}
+            />
+          </div>
         ) : null}
       </header>
 
@@ -434,6 +457,16 @@ export default function GalleryDetailPage() {
           open={editOpen}
           onOpenChange={setEditOpen}
           gallery={gallery}
+          onSaved={reloadGallery}
+        />
+      ) : null}
+
+      {gallery && isOwner ? (
+        <GalleryPricingDialog
+          open={pricingOpen}
+          onOpenChange={setPricingOpen}
+          gallery={gallery}
+          studio={studio}
           onSaved={reloadGallery}
         />
       ) : null}

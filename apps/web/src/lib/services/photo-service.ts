@@ -2,14 +2,18 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   increment,
+  limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   setDoc,
+  startAfter,
   updateDoc,
   where,
+  type QueryDocumentSnapshot,
   type Unsubscribe,
 } from 'firebase/firestore';
 
@@ -214,4 +218,50 @@ export function subscribeToGalleryPhotos(
     (snap) => onChange(snap.docs.map((d) => d.data())),
     (error) => onError?.(error),
   );
+}
+
+/**
+ * Paginated page of photos for a gallery, oldest-first. Used by the
+ * gallery detail page so we don't bill a read for every photo on
+ * every visit. The dashboard subscribes to changes only for the
+ * *visible* page; new uploads land at the end (orderBy createdAt asc)
+ * and are picked up on the next "Ver mais" click.
+ *
+ * `cursor` is the last `QueryDocumentSnapshot` from the previous page;
+ * passing `null` returns the first page.
+ *
+ * Returns the docs **and** the snapshot of the last doc so the caller
+ * can pass it back as the next cursor without holding onto Firestore
+ * internals at the component level.
+ */
+export interface PhotoPage {
+  photos: PhotoDoc[];
+  cursor: QueryDocumentSnapshot<PhotoDoc> | null;
+  hasMore: boolean;
+}
+
+export async function fetchGalleryPhotoPage(
+  galleryId: string,
+  pageSize: number,
+  cursor: QueryDocumentSnapshot<PhotoDoc> | null,
+): Promise<PhotoPage> {
+  const base = [
+    where('galleryId', '==', galleryId),
+    orderBy('createdAt', 'asc'),
+  ] as const;
+
+  // We over-fetch by one doc so we can answer `hasMore` without a
+  // second `count()` round-trip — cheaper for a public storefront.
+  const probe = cursor
+    ? query(photosCollection(), ...base, startAfter(cursor), limit(pageSize + 1))
+    : query(photosCollection(), ...base, limit(pageSize + 1));
+
+  const snap = await getDocs(probe);
+  const docs = snap.docs.slice(0, pageSize);
+  const hasMore = snap.docs.length > pageSize;
+  return {
+    photos: docs.map((d) => d.data()),
+    cursor: docs[docs.length - 1] ?? null,
+    hasMore,
+  };
 }

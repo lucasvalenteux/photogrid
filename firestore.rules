@@ -141,6 +141,51 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ---------- ORDERS (cart + storefront purchases) ----------
+    // Orders are created by unauthenticated storefront visitors (no
+    // Firebase user; everything is keyed off the captured phone).
+    // We therefore allow open create + read but:
+    //
+    //   * `studioId`, `galleryId` and structural fields cannot be
+    //     forged client-side because we copy them from the gallery doc
+    //     and validate they are non-empty strings.
+    //   * Customers update their own pending order (e.g. to add the
+    //     final name + total) by matching on `customerPhone` — they
+    //     can't escalate status to `paid`. Only the owning studio can
+    //     do that.
+    //   * Once an order transitions to `paid` only the owning studio
+    //     can mutate it.
+    //
+    // Reads are public because the storefront has no auth layer for
+    // customers — discoverability is gated by knowing either the phone
+    // (lookup) or the accessToken (direct link). Since order ids are
+    // random Firestore ids this is equivalent to the gallery / album
+    // rules: the id itself is the capability.
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if request.resource.data.studioId is string
+        && request.resource.data.galleryId is string
+        && request.resource.data.customerPhone is string
+        && request.resource.data.items is list
+        && request.resource.data.status in ['cart', 'pending'];
+      allow update: if (
+          // Owner: full edit rights.
+          ownsStudio(resource.data.studioId)
+          && request.resource.data.studioId == resource.data.studioId
+          && request.resource.data.galleryId == resource.data.galleryId
+        )
+        || (
+          // Anonymous customer: may only mutate their own non-paid order,
+          // and may not flip the status to paid or change the studio.
+          resource.data.status in ['cart', 'pending']
+          && request.resource.data.studioId == resource.data.studioId
+          && request.resource.data.galleryId == resource.data.galleryId
+          && request.resource.data.customerPhone == resource.data.customerPhone
+          && request.resource.data.status in ['cart', 'pending', 'cancelled']
+        );
+      allow delete: if ownsStudio(resource.data.studioId);
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

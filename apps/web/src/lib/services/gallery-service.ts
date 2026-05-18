@@ -30,6 +30,16 @@ export interface UpdateGalleryInput {
   visibility?: Visibility;
 }
 
+export interface UpdateGalleryPricingInput {
+  /**
+   * Override (in cents) for individual photos in this gallery. Pass
+   * `null` to remove the override and fall back to the studio default.
+   */
+  pricePerPhotoCents: number | null;
+  /** Same contract as `pricePerPhotoCents` for whole-album purchases. */
+  pricePerAlbumCents: number | null;
+}
+
 /**
  * Galleries are the top-level organising primitive — they own the actual
  * photos that the photographer uploads. Albums (the curated selections live
@@ -82,6 +92,21 @@ export async function updateGallery(
 
 export async function deleteGallery(galleryId: string): Promise<void> {
   await deleteDoc(galleryDoc(galleryId));
+}
+
+/**
+ * Update the per-gallery price overrides. Passing `null` for either
+ * field clears the override so the storefront falls back to the
+ * studio-level default (`StudioDoc.pricing`).
+ */
+export async function updateGalleryPricing(
+  galleryId: string,
+  input: UpdateGalleryPricingInput,
+): Promise<void> {
+  const pricing: Record<string, number | null> = {};
+  pricing.pricePerPhotoCents = input.pricePerPhotoCents;
+  pricing.pricePerAlbumCents = input.pricePerAlbumCents;
+  await updateDoc(galleryDoc(galleryId), { pricing });
 }
 
 export async function getGallery(galleryId: string): Promise<GalleryDoc | null> {

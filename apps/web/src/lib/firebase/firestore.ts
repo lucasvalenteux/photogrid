@@ -11,6 +11,7 @@ import type {
   AlbumDoc,
   FaceClusterDoc,
   GalleryDoc,
+  OrderDoc,
   PhotoDoc,
   SlugReservation,
   StudioDoc,
@@ -34,6 +35,8 @@ export const albumsCollection = () => typedCollection<AlbumDoc>(FIRESTORE_COLLEC
 export const photosCollection = () => typedCollection<PhotoDoc>(FIRESTORE_COLLECTIONS.photos);
 export const faceClustersCollection = () =>
   typedCollection<FaceClusterDoc>(FIRESTORE_COLLECTIONS.faceClusters);
+export const ordersCollection = () =>
+  typedCollection<OrderDoc>(FIRESTORE_COLLECTIONS.orders);
 
 export const userDoc = (id: string) => typedDoc<UserDoc>(FIRESTORE_COLLECTIONS.users, id);
 export const studioDoc = (id: string) => typedDoc<StudioDoc>(FIRESTORE_COLLECTIONS.studios, id);
@@ -45,3 +48,4 @@ export const albumDoc = (id: string) => typedDoc<AlbumDoc>(FIRESTORE_COLLECTIONS
 export const photoDoc = (id: string) => typedDoc<PhotoDoc>(FIRESTORE_COLLECTIONS.photos, id);
 export const faceClusterDoc = (id: string) =>
   typedDoc<FaceClusterDoc>(FIRESTORE_COLLECTIONS.faceClusters, id);
+export const orderDoc = (id: string) => typedDoc<OrderDoc>(FIRESTORE_COLLECTIONS.orders, id);

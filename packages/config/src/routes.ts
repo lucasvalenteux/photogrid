@@ -21,11 +21,17 @@ export const ROUTES = {
   publicGallery: (slug: string, galleryId: string) => `/${slug}/${galleryId}`,
   publicAlbum: (slug: string, galleryId: string, albumId: string) =>
     `/${slug}/${galleryId}/${albumId}`,
+  /** Public-side cart & customer order pages. */
+  cart: '/carrinho',
+  myPurchases: '/minhas-compras',
+  myPurchasesToken: (token: string) => `/minhas-compras/${token}`,
 } as const;
 
 export const PUBLIC_ROUTES = [
   ROUTES.home,
   ROUTES.login,
+  ROUTES.cart,
+  ROUTES.myPurchases,
 ] as readonly string[];
 
 export const AUTH_ONLY_ROUTES = [ROUTES.onboarding] as readonly string[];

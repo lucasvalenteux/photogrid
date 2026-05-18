@@ -10,7 +10,7 @@ import {
 import { deleteStudioLogo, uploadStudioLogo } from '@/lib/firebase/storage';
 import { slugify, validateSlug } from '@/lib/slug';
 import { FIRESTORE_COLLECTIONS } from '@photogrid/config';
-import type { StudioPaymentSettings } from '@/types';
+import type { StudioPaymentSettings, StudioPricingSettings } from '@/types';
 
 export interface CreateStudioInput {
   ownerId: string;
@@ -209,6 +209,18 @@ export async function updateStudioPayment(
   payment: StudioPaymentSettings,
 ): Promise<void> {
   await updateDoc(studioDoc(studioId), { payment });
+}
+
+/**
+ * Persist the studio's default pricing for storefront purchases. These
+ * values are used by the cart whenever the gallery itself doesn't
+ * override them — see `resolveGalleryPrices` in `@/types`.
+ */
+export async function updateStudioPricing(
+  studioId: string,
+  pricing: StudioPricingSettings,
+): Promise<void> {
+  await updateDoc(studioDoc(studioId), { pricing });
 }
 
 export const STUDIO_COLLECTION = FIRESTORE_COLLECTIONS.studios;
