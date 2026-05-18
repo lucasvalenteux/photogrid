@@ -77,12 +77,16 @@ interface EnqueuePhotoInput {
  * Fire-and-forget request to the API after a successful photo upload. The
  * server returns 202 immediately and processes asynchronously; we don't
  * await any clustering output here.
+ *
+ * Returns `true` on a successful 2xx, `false` on any other outcome — the
+ * upload path ignores the return, but `reprocessGalleryPhotos` uses it to
+ * keep a running success count for the toast feedback.
  */
 export async function enqueuePhotoForClustering({
   photo,
   force = false,
-}: EnqueuePhotoInput): Promise<void> {
-  if (!ENABLED) return;
+}: EnqueuePhotoInput): Promise<boolean> {
+  if (!ENABLED) return false;
   try {
     const resp = await authedFetch('/api/v1/face-clustering/process-photo', {
       method: 'POST',
@@ -100,11 +104,62 @@ export async function enqueuePhotoForClustering({
         resp.status,
         await resp.text().catch(() => ''),
       );
+      return false;
     }
+    return true;
   } catch (error) {
     // Don't let face-clustering failures impact the upload flow.
     console.warn('[face-clustering] enqueue failed', error);
+    return false;
   }
+}
+
+/**
+ * Re-enqueue every photo in a gallery for face-clustering, with a small
+ * concurrency cap so we don't open hundreds of parallel sockets. Used by
+ * the "Reprocessar fotos" button — invaluable for galleries that were
+ * uploaded before the AI backend existed, or before the
+ * `NEXT_PUBLIC_API_URL` env var was set in production.
+ */
+export interface ReprocessProgress {
+  total: number;
+  queued: number;
+  failed: number;
+}
+
+export async function reprocessGalleryPhotos(
+  photos: Array<Pick<PhotoDoc, 'id' | 'galleryId' | 'imageUrl' | 'thumbnailUrl'>>,
+  onProgress?: (progress: ReprocessProgress) => void,
+): Promise<ReprocessProgress> {
+  const total = photos.length;
+  let queued = 0;
+  let failed = 0;
+  const report = () => onProgress?.({ total, queued, failed });
+
+  // 4 concurrent in-flight POSTs keeps the API from queueing 100 background
+  // tasks at once (which would all wait on the single-worker ONNX runtime
+  // and inflate the 1 GB memory headroom).
+  const concurrency = 4;
+  let cursor = 0;
+  const next = (): typeof photos[number] | undefined => {
+    if (cursor >= photos.length) return undefined;
+    return photos[cursor++];
+  };
+
+  const worker = async () => {
+    while (true) {
+      const photo = next();
+      if (!photo) return;
+      const ok = await enqueuePhotoForClustering({ photo, force: true });
+      if (ok) queued += 1;
+      else failed += 1;
+      report();
+    }
+  };
+
+  report();
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return { total, queued, failed };
 }
 
 /* ------------------------------------------------------------------------ */

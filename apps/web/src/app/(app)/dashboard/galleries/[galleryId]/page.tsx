@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronLeft, Plus, Users } from 'lucide-react';
+import { ChevronLeft, Plus, Sparkles, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { effectiveVisibility, ROUTES } from '@photogrid/config';
@@ -27,6 +27,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { subscribeToAlbums } from '@/lib/services/album-service';
 import {
   isFaceClusteringEnabled,
+  reprocessGalleryPhotos,
   subscribeToOpenClusters,
 } from '@/lib/services/face-clustering-service';
 import {
@@ -175,6 +176,42 @@ export default function GalleryDetailPage() {
     (item) => item.status === 'queued' || item.status === 'uploading',
   ).length;
 
+  // Manual reprocess — useful for galleries that were uploaded before the
+  // AI backend went live, since those photos never hit the queue. Toast
+  // shows running progress so the photographer knows it's working.
+  const [reprocessing, setReprocessing] = React.useState(false);
+  const onReprocess = async () => {
+    if (reprocessing || photos.length === 0) return;
+    setReprocessing(true);
+    const toastId = toast.loading(
+      `Reprocessando 0 de ${photos.length} fotos…`,
+    );
+    try {
+      const result = await reprocessGalleryPhotos(photos, (progress) => {
+        toast.loading(
+          `Reprocessando ${progress.queued + progress.failed} de ${progress.total} fotos…`,
+          { id: toastId },
+        );
+      });
+      if (result.failed === 0) {
+        toast.success(
+          `${result.queued} fotos enviadas para análise. As sugestões aparecem em segundos.`,
+          { id: toastId },
+        );
+      } else {
+        toast.warning(
+          `${result.queued} enviadas, ${result.failed} falharam. Tente novamente em alguns segundos.`,
+          { id: toastId },
+        );
+      }
+    } catch (error) {
+      console.error('[face-clustering] reprocess error', error);
+      toast.error('Não foi possível reprocessar agora.', { id: toastId });
+    } finally {
+      setReprocessing(false);
+    }
+  };
+
   const onDeleteConfirmed = async () => {
     await deleteGallery(galleryId);
     toast.success('Galeria excluída.');
@@ -266,10 +303,13 @@ export default function GalleryDetailPage() {
         )}
       </section>
 
-      {isOwner && faceClusteringActive && clusters.length > 0 && gallery ? (
+      {isOwner && faceClusteringActive && gallery ? (
         <ClusterSuggestions
           clusters={clusters}
           galleryTitle={gallery.title}
+          onReprocess={photos.length > 0 ? onReprocess : undefined}
+          reprocessing={reprocessing}
+          photoCount={photos.length}
         />
       ) : null}
 

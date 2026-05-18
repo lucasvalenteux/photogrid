@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { RefreshCw, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button, cn } from '@photogrid/ui';
@@ -19,6 +19,15 @@ interface ClusterSuggestionsProps {
   galleryTitle: string;
   /** Callback fired after a successful promotion (so the page can navigate). */
   onPromoted?: (albumId: string) => void;
+  /**
+   * Manual "reprocess all photos" handler. Surfaced as a button so the
+   * owner can backfill clusters for photos uploaded before the AI
+   * backend went live. Omit when there are no photos to reprocess.
+   */
+  onReprocess?: () => void;
+  reprocessing?: boolean;
+  /** Total photo count — used to gate the empty-state copy. */
+  photoCount: number;
 }
 
 /**
@@ -27,40 +36,85 @@ interface ClusterSuggestionsProps {
  * photos in the gallery. Clicking "Criar álbum" delegates to the API
  * which atomically creates an Album from the cluster's photoIds.
  *
- * No-op when `clusters` is empty — the parent page hides the section.
+ * Renders an empty state with a "Reprocessar" button when face clustering
+ * is enabled but no clusters exist yet — covers two cases:
+ *   1. Photos were uploaded before the AI backend was deployed (so they
+ *      never hit the pipeline).
+ *   2. The pipeline ran but no faces met the detection threshold.
  */
 export function ClusterSuggestions({
   clusters,
   galleryTitle,
   onPromoted,
+  onReprocess,
+  reprocessing = false,
+  photoCount,
 }: ClusterSuggestionsProps) {
-  if (clusters.length === 0) return null;
+  const hasClusters = clusters.length > 0;
 
   return (
     <section className="space-y-3">
-      <div className="flex items-baseline justify-between">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="inline-flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
           <Sparkles className="size-4 text-brand-500" />
           Sugestões automáticas
         </h2>
-        <span className="text-xs text-muted-foreground">
-          {clusters.length} {clusters.length === 1 ? 'pessoa' : 'pessoas'}
-        </span>
+        <div className="flex items-center gap-3">
+          {hasClusters ? (
+            <span className="text-xs text-muted-foreground">
+              {clusters.length} {clusters.length === 1 ? 'pessoa' : 'pessoas'}
+            </span>
+          ) : null}
+          {onReprocess ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onReprocess}
+              disabled={reprocessing}
+              className="h-8 gap-1.5 px-2 text-xs text-muted-foreground"
+            >
+              <RefreshCw
+                className={cn('size-3.5', reprocessing && 'animate-spin')}
+              />
+              {reprocessing ? 'Reprocessando…' : 'Reprocessar fotos'}
+            </Button>
+          ) : null}
+        </div>
       </div>
-      <p className="text-xs text-muted-foreground">
-        Detectamos grupos de fotos com a mesma pessoa. Crie um álbum com 1
-        clique e ajuste a seleção depois.
-      </p>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {clusters.map((cluster) => (
-          <ClusterCard
-            key={cluster.id}
-            cluster={cluster}
-            galleryTitle={galleryTitle}
-            onPromoted={onPromoted}
-          />
-        ))}
-      </div>
+
+      {hasClusters ? (
+        <>
+          <p className="text-xs text-muted-foreground">
+            Detectamos grupos de fotos com a mesma pessoa. Crie um álbum
+            com 1 clique e ajuste a seleção depois.
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {clusters.map((cluster) => (
+              <ClusterCard
+                key={cluster.id}
+                cluster={cluster}
+                galleryTitle={galleryTitle}
+                onPromoted={onPromoted}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border bg-muted/30 px-4 py-6 text-center">
+          <p className="text-sm text-foreground">
+            {photoCount === 0
+              ? 'Suba fotos com pessoas para receber sugestões de álbuns automaticamente.'
+              : 'Ainda não detectamos pessoas nas fotos desta galeria.'}
+          </p>
+          {photoCount > 0 ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Se você subiu as fotos antes da IA estar ativa, clique em
+              <span className="font-medium"> &ldquo;Reprocessar fotos&rdquo;</span> para
+              analisá-las agora.
+            </p>
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
