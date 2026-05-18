@@ -44,6 +44,7 @@ export function StorefrontAlbumCard({
 }: StorefrontAlbumCardProps) {
   const href = ROUTES.publicAlbum(studio.slug, gallery.id, album.id);
   const showCart = pricePerAlbumCents > 0;
+  const photoCount = album.photoIds?.length ?? 0;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md">
@@ -78,8 +79,7 @@ export function StorefrontAlbumCard({
             {album.title}
           </h3>
           <p className="text-xs text-muted-foreground">
-            {album.photoIds.length}{' '}
-            {album.photoIds.length === 1 ? 'foto' : 'fotos'}
+            {photoCount} {photoCount === 1 ? 'foto' : 'fotos'}
           </p>
         </Link>
         {showCart ? (
@@ -98,7 +98,7 @@ export function StorefrontAlbumCard({
                 title: album.title,
                 thumbnailUrl: album.coverPhotoUrl ?? null,
                 priceCents: pricePerAlbumCents,
-                photoCount: album.photoIds.length,
+                photoCount,
               },
             }}
           />

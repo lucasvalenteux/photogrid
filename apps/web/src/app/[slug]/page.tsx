@@ -9,7 +9,6 @@ import { PublicFaceSearch } from '@/components/public/public-face-search';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPublicGalleries,
-  fetchPublicFaceSearchIndex,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
 import {
@@ -59,12 +58,7 @@ export default async function PublicStudioPage({ params }: Props) {
   if (!studio) notFound();
 
   const publicFaceSearchEnabled = effectivePublicFaceSearchEnabled(studio);
-  const [galleries, faceSearchIndex] = await Promise.all([
-    fetchPublicGalleries(studio.id),
-    publicFaceSearchEnabled
-      ? fetchPublicFaceSearchIndex(studio.id)
-      : Promise.resolve(null),
-  ]);
+  const galleries = await fetchPublicGalleries(studio.id);
   const security = effectiveStudioSecurity(studio);
   const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
 
@@ -81,7 +75,7 @@ export default async function PublicStudioPage({ params }: Props) {
             </p>
           </div>
 
-          {publicFaceSearchEnabled && faceSearchIndex ? (
+          {publicFaceSearchEnabled ? (
             <PublicFaceSearch
               studio={{
                 id: studio.id,
@@ -89,11 +83,6 @@ export default async function PublicStudioPage({ params }: Props) {
                 slug: studio.slug,
                 logoUrl: studio.logoUrl,
               }}
-              studioUrl={studioUrl}
-              security={security}
-              photos={faceSearchIndex.photos}
-              albums={faceSearchIndex.albums}
-              galleries={faceSearchIndex.galleries}
             />
           ) : null}
         </header>

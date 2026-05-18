@@ -19,6 +19,7 @@ export const ROUTES = {
   settings: '/dashboard/settings',
   /** Public storefront URLs. */
   studio: (slug: string) => `/${slug}`,
+  publicFaceSearch: (slug: string) => `/${slug}/busca-rosto`,
   publicGallery: (slug: string, galleryId: string) => `/${slug}/${galleryId}`,
   publicAlbum: (slug: string, galleryId: string, albumId: string) =>
     `/${slug}/${galleryId}/${albumId}`,
