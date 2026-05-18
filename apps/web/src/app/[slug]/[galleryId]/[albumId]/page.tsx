@@ -121,7 +121,12 @@ export default async function PublicAlbumPage({ params }: Props) {
           ) : (
             <StorefrontPhotoGrid
               photos={photos}
-              studio={{ id: studio.id, name: studio.name, slug: studio.slug }}
+              studio={{
+                id: studio.id,
+                name: studio.name,
+                slug: studio.slug,
+                logoUrl: studio.logoUrl,
+              }}
               studioUrl={studioUrl}
               security={security}
               gallery={{ id: gallery.id, title: gallery.title }}

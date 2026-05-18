@@ -216,6 +216,7 @@ function CartInner({ studio }: { studio: StudioDoc }) {
               onRemove={onRemove}
               studioName={studio.name}
               studioUrl={studioUrl}
+              studioLogoUrl={studio.logoUrl}
               security={security}
             />
           ) : null}
@@ -297,12 +298,14 @@ function CartItems({
   onRemove,
   studioName,
   studioUrl,
+  studioLogoUrl,
   security,
 }: {
   items: OrderItem[];
   onRemove: (item: OrderItem) => Promise<void>;
   studioName: string;
   studioUrl: string;
+  studioLogoUrl?: string | null;
   security: Required<StudioSecuritySettings>;
 }) {
   return (
@@ -316,6 +319,7 @@ function CartItems({
                 alt={cartItemLabel(item, index)}
                 studioName={studioName}
                 studioUrl={studioUrl}
+                studioLogoUrl={studioLogoUrl}
                 security={security}
                 interactive="none"
                 className="size-16"

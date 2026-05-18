@@ -87,6 +87,7 @@ export default async function PublicStudioPage({ params }: Props) {
                     alt={gallery.title}
                     studioName={studio.name}
                     studioUrl={studioUrl}
+                    studioLogoUrl={studio.logoUrl}
                     security={security}
                     interactive="none"
                     aspect="aspect-[5/4]"

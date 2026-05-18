@@ -103,7 +103,12 @@ export default async function PublicGalleryPage({ params }: Props) {
             ) : (
               <StorefrontPhotoGrid
                 photos={photos}
-                studio={{ id: studio.id, name: studio.name, slug: studio.slug }}
+                studio={{
+                  id: studio.id,
+                  name: studio.name,
+                  slug: studio.slug,
+                  logoUrl: studio.logoUrl,
+                }}
                 studioUrl={studioUrl}
                 security={security}
                 gallery={{ id: gallery.id, title: gallery.title }}
@@ -130,7 +135,12 @@ export default async function PublicGalleryPage({ params }: Props) {
                 <StorefrontAlbumCard
                   key={album.id}
                   album={album}
-                  studio={{ id: studio.id, name: studio.name, slug: studio.slug }}
+                  studio={{
+                    id: studio.id,
+                    name: studio.name,
+                    slug: studio.slug,
+                    logoUrl: studio.logoUrl,
+                  }}
                   studioUrl={studioUrl}
                   security={security}
                   gallery={{ id: gallery.id, title: gallery.title }}

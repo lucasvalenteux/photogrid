@@ -16,6 +16,7 @@ interface StorefrontAlbumCardProps {
     id: string;
     name: string;
     slug: string;
+    logoUrl?: string | null;
   };
   studioUrl: string;
   security: Required<StudioSecuritySettings>;
@@ -57,6 +58,7 @@ export function StorefrontAlbumCard({
             alt={album.title}
             studioName={studio.name}
             studioUrl={studioUrl}
+            studioLogoUrl={studio.logoUrl}
             security={security}
             interactive="none"
             aspect="aspect-[5/4]"

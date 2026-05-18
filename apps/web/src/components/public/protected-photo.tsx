@@ -41,6 +41,7 @@ export interface ProtectedPhotoProps {
    * studio name is tiled.
    */
   studioUrl?: string;
+  studioLogoUrl?: string | null;
   security: Required<StudioSecuritySettings>;
   /**
    * How the photo behaves when clicked:
@@ -66,6 +67,7 @@ export function ProtectedPhoto({
   alt,
   studioName,
   studioUrl,
+  studioLogoUrl,
   security,
   interactive = 'full-image',
   aspect = 'aspect-square',
@@ -148,7 +150,11 @@ export function ProtectedPhoto({
       ) : null}
 
       {watermark ? (
-        <WatermarkOverlay studioName={studioName} studioUrl={studioUrl} />
+        <WatermarkOverlay
+          studioName={studioName}
+          studioUrl={studioUrl}
+          studioLogoUrl={studioLogoUrl}
+        />
       ) : null}
 
       {antiAi ? <AntiAiNoiseOverlay /> : null}
@@ -159,21 +165,27 @@ export function ProtectedPhoto({
 function WatermarkOverlay({
   studioName,
   studioUrl,
+  studioLogoUrl,
 }: {
   studioName: string;
   studioUrl?: string;
+  studioLogoUrl?: string | null;
 }) {
+  const logoUrl = studioLogoUrl || '/favicon.svg';
+
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 flex flex-col justify-center gap-[8%] overflow-hidden px-3 py-4"
+      className="pointer-events-none absolute inset-0 flex flex-col justify-center gap-[7%] overflow-hidden px-2 py-4"
     >
-      {Array.from({ length: 9 }).map((_, index) => (
+      {Array.from({ length: 8 }).map((_, index) => (
         <WatermarkLine
           key={index}
           studioName={studioName}
           studioUrl={studioUrl}
-          emphasis={index === 4}
+          logoUrl={logoUrl}
+          reverse={index % 2 === 1}
+          emphasis={index === 3 || index === 4}
         />
       ))}
     </div>
@@ -183,32 +195,93 @@ function WatermarkOverlay({
 function WatermarkLine({
   studioName,
   studioUrl,
+  logoUrl,
+  reverse,
   emphasis,
 }: {
   studioName: string;
   studioUrl?: string;
+  logoUrl: string;
+  reverse: boolean;
   emphasis?: boolean;
 }) {
+  const name = `© ${studioName}`.toUpperCase();
+  const url = studioUrl ?? '';
+  const items = reverse
+    ? [
+        { value: url, kind: 'url' as const },
+        { value: name, kind: 'name' as const },
+      ]
+    : [
+        { value: name, kind: 'name' as const },
+        { value: url, kind: 'url' as const },
+      ];
+
   return (
     <div
-      className="flex w-full select-none items-center justify-center text-center font-semibold uppercase tracking-[0.22em] text-white/72"
+      className="flex w-[160%] -translate-x-[18%] select-none items-center justify-center gap-5 whitespace-nowrap text-center font-semibold text-white/68 sm:gap-7"
       style={{
         textShadow:
-          '0 1px 2px rgba(0,0,0,0.9), 0 -1px 2px rgba(0,0,0,0.75), 1px 0 2px rgba(0,0,0,0.65), -1px 0 2px rgba(0,0,0,0.65)',
+          '0 1px 2px rgba(0,0,0,0.85), 0 -1px 2px rgba(0,0,0,0.65), 1px 0 2px rgba(0,0,0,0.55), -1px 0 2px rgba(0,0,0,0.55)',
       }}
     >
-      <span className={emphasis ? 'text-[12px] sm:text-[13px]' : 'text-[10px] sm:text-[11px]'}>
-        © {studioName}
-        {studioUrl ? (
-          <>
-            <span className="mx-3 text-white/45">•</span>
-            <span className="normal-case tracking-[0.14em] text-white/62">
-              {studioUrl}
-            </span>
-          </>
-        ) : null}
-      </span>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <WatermarkGroup
+          key={index}
+          items={items}
+          logoUrl={logoUrl}
+          emphasis={emphasis}
+        />
+      ))}
     </div>
+  );
+}
+
+function WatermarkGroup({
+  items,
+  logoUrl,
+  emphasis,
+}: {
+  items: Array<{ value: string; kind: 'name' | 'url' }>;
+  logoUrl: string;
+  emphasis?: boolean;
+}) {
+  const textSize = emphasis
+    ? 'text-[10px] sm:text-[11px]'
+    : 'text-[8.5px] sm:text-[9.5px]';
+
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center gap-3 tracking-[0.16em] sm:gap-4',
+        textSize,
+      )}
+    >
+      {items.map((item, index) =>
+        item.value ? (
+          <React.Fragment key={`${item.value}:${index}`}>
+            {index > 0 ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt=""
+                className="size-4 rounded-full object-cover opacity-45 grayscale sm:size-5"
+                loading="lazy"
+                decoding="async"
+              />
+            ) : null}
+            <span
+              className={cn(
+                item.kind === 'name' ? 'uppercase' : 'normal-case',
+                item.kind === 'url' && 'tracking-[0.1em] text-white/58',
+              )}
+            >
+              {item.value}
+            </span>
+          </React.Fragment>
+        ) : null,
+      )}
+    </span>
   );
 }
 

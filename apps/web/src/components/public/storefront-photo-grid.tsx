@@ -24,6 +24,7 @@ interface StorefrontPhotoGridProps {
     id: string;
     name: string;
     slug: string;
+    logoUrl?: string | null;
   };
   studioUrl: string;
   security: Required<StudioSecuritySettings>;
@@ -72,6 +73,7 @@ export function StorefrontPhotoGrid({
                 alt={photo.fileName}
                 studioName={studio.name}
                 studioUrl={studioUrl}
+                studioLogoUrl={studio.logoUrl}
                 security={security}
               />
               <Button
@@ -189,6 +191,7 @@ function PublicPhotoDetailsDialog({
               alt="Foto selecionada"
               studioName={studio.name}
               studioUrl={studioUrl}
+              studioLogoUrl={studio.logoUrl}
               security={security}
               interactive="none"
               fit="contain"
