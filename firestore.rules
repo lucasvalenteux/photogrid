@@ -1,0 +1,148 @@
+rules_version = '2';
+
+// Photogrid Firestore Security Rules
+//
+// Data model:
+//   /users/{uid}              — private to the owner
+//   /studios/{studioId}       — public read, owner write
+//   /slugs/{slug}             — public read, owner write (uniqueness index)
+//   /galleries/{galleryId}    — public read, owner write
+//   /albums/{albumId}         — public read, owner write (curated selections)
+//   /photos/{photoId}         — public read, owner write
+//
+// Multi-tenant isolation is enforced by:
+//   - Checking that `studioId` on the doc matches a studio whose ownerId
+//     equals `request.auth.uid` on every write.
+//   - Forbidding mutation of structural fields (studioId, parent ids).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function ownsStudio(studioId) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/studios/$(studioId))
+        && get(/databases/$(database)/documents/studios/$(studioId)).data.ownerId == request.auth.uid;
+    }
+
+    // Accepts public/unlisted/private — or absent (legacy docs default to public).
+    function validVisibility(data) {
+      return !('visibility' in data)
+        || data.visibility in ['public', 'unlisted', 'private'];
+    }
+
+    // ---------- USERS ----------
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.id == userId
+        && request.resource.data.email is string;
+      allow update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // ---------- STUDIOS ----------
+    match /studios/{studioId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.slug is string;
+      allow update: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.slug == resource.data.slug;
+      allow delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ---------- SLUGS ----------
+    match /slugs/{slug} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.studioId is string;
+      allow update, delete: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ---------- GALLERIES ----------
+    // Note: read is intentionally `true` — visibility (`public`/`unlisted`/
+    // `private`) is enforced at the application layer because Firestore
+    // rules can't differentiate "direct lookup with the id" from "scan".
+    // Random ids are practically un-guessable; `private` is additionally
+    // hidden by route-level 404s in the public storefront.
+    match /galleries/{galleryId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && ownsStudio(request.resource.data.studioId)
+        && request.resource.data.title is string
+        && validVisibility(request.resource.data);
+      allow update: if isSignedIn()
+        && ownsStudio(resource.data.studioId)
+        && request.resource.data.studioId == resource.data.studioId
+        && validVisibility(request.resource.data);
+      allow delete: if isSignedIn() && ownsStudio(resource.data.studioId);
+    }
+
+    // ---------- ALBUMS (curated selections) ----------
+    match /albums/{albumId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && ownsStudio(request.resource.data.studioId)
+        && request.resource.data.galleryId is string
+        && request.resource.data.title is string
+        && request.resource.data.photoIds is list
+        && validVisibility(request.resource.data);
+      allow update: if isSignedIn()
+        && ownsStudio(resource.data.studioId)
+        && request.resource.data.studioId == resource.data.studioId
+        && request.resource.data.galleryId == resource.data.galleryId
+        && request.resource.data.photoIds is list
+        && validVisibility(request.resource.data);
+      allow delete: if isSignedIn() && ownsStudio(resource.data.studioId);
+    }
+
+    // ---------- PHOTOS ----------
+    match /photos/{photoId} {
+      allow read: if true;
+      allow create: if isSignedIn()
+        && ownsStudio(request.resource.data.studioId)
+        && request.resource.data.galleryId is string
+        && request.resource.data.imageUrl is string;
+      allow update: if isSignedIn()
+        && ownsStudio(resource.data.studioId)
+        && request.resource.data.studioId == resource.data.studioId
+        && request.resource.data.galleryId == resource.data.galleryId;
+      allow delete: if isSignedIn() && ownsStudio(resource.data.studioId);
+    }
+
+    // ---------- FACE CLUSTERS (auto-suggested albums) ----------
+    // Writes go through the FastAPI service (uses Firebase Admin SDK and
+    // therefore bypasses these rules). The owner can read their clusters
+    // to render the dashboard suggestions; the public never sees them
+    // because the storefront only reads /albums.
+    match /faceClusters/{clusterId} {
+      allow read: if isSignedIn() && ownsStudio(resource.data.studioId);
+      // Block all client writes — only the trusted backend may mutate.
+      allow create, update, delete: if false;
+    }
+
+    // ---------- PHOTO FACES (detection cache) ----------
+    // Same rationale: written by the trusted backend; only the owner can
+    // observe what was detected (useful for debugging, not surfaced in UI).
+    match /photoFaces/{photoId} {
+      allow read: if isSignedIn() && ownsStudio(resource.data.studioId);
+      allow create, update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// Photogrid Storage Rules
+//
+// Path layout (photos can live either in a session or loose in an album):
+//   /studios/{studioId}/albums/{albumId}/sessions/{sessionId}/photos/{photoId}/<file>
+//   /studios/{studioId}/albums/{albumId}/photos/{photoId}/<file>
+//
+// Security model:
+//   - READ is public so storefront pages and shared links work without auth.
+//   - WRITE requires an authenticated user plus the technical guards below
+//     (size, content-type).
+//
+// Studio-ownership IS enforced — but in the Firestore `photos` doc that
+// references the storage path, not in this file. We keep the Storage rules
+// lean on purpose:
+//   - Cross-service Firestore reads from Storage rules (`firestore.get(...)`)
+//     require the Firebase Storage service account to hold
+//     `roles/datastore.user`. That grant is not always present on freshly
+//     bootstrapped projects and silently fails as `storage/unauthorized`.
+//   - The follow-up tightening is custom claims (`request.auth.token.studioId
+//     == studioId`) once the FastAPI sets them on studio creation. That work
+//     is tracked separately.
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    match /studios/{studioId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,85 @@
+/* ----------------------------------------------------------------------------
+ * Photogrid Design Tokens
+ *
+ * Single source of truth for color, typography, radii, shadows and motion.
+ * Consumed by Tailwind v4 via the @theme directive in globals.css.
+ * --------------------------------------------------------------------------*/
+
+:root {
+  /* Brand */
+  --color-brand-50: #fff0f8;
+  --color-brand-100: #ffd9ec;
+  --color-brand-200: #ffb3d9;
+  --color-brand-300: #ff85bf;
+  --color-brand-400: #ff57a8;
+  --color-brand-500: #ff2d92; /* PRIMARY — magenta vibrante */
+  --color-brand-600: #e61a7c;
+  --color-brand-700: #b80f62;
+  --color-brand-800: #870846;
+  --color-brand-900: #5a052e;
+
+  /* Neutrals */
+  --color-black: #0a0a0a;
+  --color-ink: #171717;
+  --color-graphite: #404040;
+  --color-mute: #737373;
+  --color-line: #e5e5e5;
+  --color-surface: #fafafa;
+  --color-white: #ffffff;
+
+  /* Semantic */
+  --color-background: var(--color-surface);
+  --color-foreground: var(--color-ink);
+  --color-card: var(--color-white);
+  --color-card-foreground: var(--color-ink);
+  --color-muted: #f5f5f5;
+  --color-muted-foreground: var(--color-mute);
+  --color-border: var(--color-line);
+  --color-input: var(--color-line);
+  --color-ring: var(--color-brand-500);
+  --color-primary: var(--color-brand-500);
+  --color-primary-foreground: var(--color-white);
+  --color-secondary: #f5f5f5;
+  --color-secondary-foreground: var(--color-ink);
+  --color-accent: #f5f5f5;
+  --color-accent-foreground: var(--color-ink);
+  --color-destructive: #e11d48;
+  --color-destructive-foreground: var(--color-white);
+  --color-success: #16a34a;
+
+  /* Radius */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+  --radius-full: 9999px;
+
+  /* Shadows — soft, premium, low-contrast */
+  --shadow-xs: 0 1px 2px 0 rgba(10, 10, 10, 0.04);
+  --shadow-sm: 0 1px 2px 0 rgba(10, 10, 10, 0.04), 0 1px 3px 0 rgba(10, 10, 10, 0.06);
+  --shadow-md: 0 4px 12px -2px rgba(10, 10, 10, 0.06), 0 2px 4px -2px rgba(10, 10, 10, 0.04);
+  --shadow-lg: 0 12px 32px -8px rgba(10, 10, 10, 0.08), 0 4px 8px -4px rgba(10, 10, 10, 0.04);
+  --shadow-xl: 0 24px 48px -12px rgba(10, 10, 10, 0.12);
+  --shadow-glow: 0 0 0 1px rgba(255, 45, 146, 0.18), 0 8px 32px -4px rgba(255, 45, 146, 0.28);
+
+  /* Typography */
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono:
+    'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* Motion */
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-in-out-quart: cubic-bezier(0.77, 0, 0.175, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 360ms;
+
+  /* Layout */
+  --container-px: 1.25rem;
+  --container-max: 76rem;
+}

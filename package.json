@@ -1,0 +1,28 @@
+{
+  "name": "photogrid",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Photogrid — a multi-tenant SaaS where photographers host and sell photos online.",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @photogrid/web dev",
+    "dev:web": "pnpm --filter @photogrid/web dev",
+    "dev:api": "pnpm --filter @photogrid/api dev",
+    "build": "pnpm -r --filter \"./packages/*\" build && pnpm --filter @photogrid/web build",
+    "build:web": "pnpm --filter @photogrid/web build",
+    "lint": "pnpm -r --parallel lint",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\" --ignore-path .gitignore",
+    "clean": "pnpm -r --parallel clean && rm -rf node_modules",
+    "firebase:rules": "firebase deploy --only firestore:rules,storage"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "typescript": "^5.6.3"
+  }
+}

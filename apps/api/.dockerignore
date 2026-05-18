@@ -1,0 +1,18 @@
+# Build artifacts that should not be sent to the Docker daemon.
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache
+.venv
+venv
+env
+.env
+.env.local
+*.egg-info
+.coverage
+.mypy_cache
+.ruff_cache
+.DS_Store
+README.md

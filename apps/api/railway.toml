@@ -1,0 +1,14 @@
+# Railway service config — points at the API workspace inside the monorepo.
+# Railway will build the Dockerfile in this directory and expose it at the
+# service URL. Memory should be set to >=2 GB in the Railway dashboard.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"
+healthcheckPath = "/api/v1/health"
+healthcheckTimeout = 60
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

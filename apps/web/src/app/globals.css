@@ -1,0 +1,10 @@
+@import '@photogrid/ui/styles/globals.css';
+
+/* Tailwind v4 needs to know which paths to scan for class names — including
+ * those that live in the shared design-system package. */
+@source "../../node_modules/@photogrid/ui/src/**/*.{ts,tsx}";
+
+html,
+body {
+  min-height: 100dvh;
+}
