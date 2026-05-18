@@ -20,7 +20,25 @@ export interface StudioDoc {
   ownerId: string;
   name: string;
   slug: string;
+  /**
+   * Whether automatic face detection / album suggestions run for this
+   * studio. Optional for backwards compatibility — undefined is treated
+   * as `true` by `effectiveFaceClusteringEnabled`.
+   */
+  faceClusteringEnabled?: boolean;
   createdAt: string;
+}
+
+/**
+ * Backwards-compatible reader for the studio's face-clustering preference.
+ * Treats missing values as enabled so existing studios keep behaving the
+ * way they did before the toggle existed.
+ */
+export function effectiveFaceClusteringEnabled(
+  studio: Pick<StudioDoc, 'faceClusteringEnabled'> | null | undefined,
+): boolean {
+  if (!studio) return true;
+  return studio.faceClusteringEnabled !== false;
 }
 
 export interface GalleryDoc {

@@ -11,4 +11,5 @@ export * from './components/label';
 export * from './components/logo';
 export * from './components/separator';
 export * from './components/skeleton';
+export * from './components/switch';
 export * from './components/tooltip';

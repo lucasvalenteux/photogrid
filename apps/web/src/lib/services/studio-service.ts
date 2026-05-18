@@ -1,4 +1,4 @@
-import { doc, getDoc, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 import { db } from '@/lib/firebase/client';
 import {
@@ -94,6 +94,21 @@ export async function getStudioBySlug(slug: string) {
   if (!slugSnap.exists()) return null;
   const studioSnap = await getDoc(studioDoc(slugSnap.data().studioId));
   return studioSnap.exists() ? studioSnap.data() : null;
+}
+
+/**
+ * Toggle face detection / album suggestions for the studio. The Firestore
+ * rule on `/studios/{id}.update` only forbids changing `ownerId` and `slug`,
+ * so the owner can flip this field freely. When false, the FastAPI service
+ * still runs (the API doesn't read this flag), but the web app never calls
+ * it and never subscribes to cluster suggestions — making the toggle the
+ * single source of truth on the client.
+ */
+export async function updateStudioFaceClustering(
+  studioId: string,
+  enabled: boolean,
+): Promise<void> {
+  await updateDoc(studioDoc(studioId), { faceClusteringEnabled: enabled });
 }
 
 export const STUDIO_COLLECTION = FIRESTORE_COLLECTIONS.studios;

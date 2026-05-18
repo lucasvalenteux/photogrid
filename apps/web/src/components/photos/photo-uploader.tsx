@@ -9,6 +9,7 @@ import { Button, cn } from '@photogrid/ui';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { enqueuePhotoForClustering } from '@/lib/services/face-clustering-service';
 import { uploadAndCommitPhoto } from '@/lib/services/photo-service';
+import { effectiveFaceClusteringEnabled } from '@/types';
 
 /* ------------------------------------------------------------------------- */
 /* Constants & types                                                          */
@@ -104,7 +105,10 @@ export function usePhotoUploader({
         // Fire-and-forget: let the API process the new photo for face
         // clustering. Failures are swallowed inside the service so the
         // upload itself never reports a clustering error to the user.
-        void enqueuePhotoForClustering({ photo });
+        // Skipped entirely when the studio has the toggle off.
+        if (effectiveFaceClusteringEnabled(studio)) {
+          void enqueuePhotoForClustering({ photo });
+        }
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Falha desconhecida no upload.';

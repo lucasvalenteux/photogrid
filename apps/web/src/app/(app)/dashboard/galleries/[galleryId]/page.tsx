@@ -35,7 +35,13 @@ import {
   reconcileGalleryCounters,
 } from '@/lib/services/gallery-service';
 import { subscribeToGalleryPhotos } from '@/lib/services/photo-service';
-import type { AlbumDoc, FaceClusterDoc, GalleryDoc, PhotoDoc } from '@/types';
+import {
+  effectiveFaceClusteringEnabled,
+  type AlbumDoc,
+  type FaceClusterDoc,
+  type GalleryDoc,
+  type PhotoDoc,
+} from '@/types';
 
 function photoCountLabel(count: number): string {
   return `${count} ${count === 1 ? 'foto' : 'fotos'}`;
@@ -118,18 +124,26 @@ export default function GalleryDetailPage() {
     return () => unsubscribe();
   }, [galleryId]);
 
-  // Face-clustering suggestions. The subscription is a no-op when the
-  // API URL isn't configured, so the strip simply never renders in
-  // environments without the AI backend.
+  // Face-clustering suggestions. We skip entirely when:
+  //   - the API URL isn't configured (no backend deployed), or
+  //   - the studio owner has the toggle off in /dashboard/settings.
+  // When the toggle flips, this effect re-runs and either subscribes or
+  // tears down cleanly, so the UI reflects the new state immediately.
+  const faceClusteringActive =
+    isFaceClusteringEnabled() && effectiveFaceClusteringEnabled(studio);
+
   React.useEffect(() => {
-    if (!isFaceClusteringEnabled()) return;
+    if (!faceClusteringActive) {
+      setClusters([]);
+      return;
+    }
     const unsubscribe = subscribeToOpenClusters(
       galleryId,
       setClusters,
       (error) => console.error('[face-clustering] subscription error', error),
     );
     return () => unsubscribe();
-  }, [galleryId]);
+  }, [galleryId, faceClusteringActive]);
 
   const shareUrl = useGalleryShareUrl(studio?.slug, galleryId);
   const isOwner = Boolean(studio && gallery && studio.id === gallery.studioId);
@@ -252,7 +266,7 @@ export default function GalleryDetailPage() {
         )}
       </section>
 
-      {isOwner && clusters.length > 0 && gallery ? (
+      {isOwner && faceClusteringActive && clusters.length > 0 && gallery ? (
         <ClusterSuggestions
           clusters={clusters}
           galleryTitle={gallery.title}
