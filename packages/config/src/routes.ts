@@ -5,7 +5,6 @@
 
 export const ROUTES = {
   home: '/',
-  pricing: '/pricing',
   /** Single unified entry point — handles both sign-up and sign-in. */
   login: '/login',
   onboarding: '/onboarding',
@@ -26,7 +25,6 @@ export const ROUTES = {
 
 export const PUBLIC_ROUTES = [
   ROUTES.home,
-  ROUTES.pricing,
   ROUTES.login,
 ] as readonly string[];
 

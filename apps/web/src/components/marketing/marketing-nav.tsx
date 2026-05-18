@@ -13,27 +13,6 @@ export function MarketingNav() {
           <Logo />
         </Link>
 
-        <nav className="hidden items-center gap-8 md:flex" aria-label="Principal">
-          <Link
-            href="#beneficios"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Benefícios
-          </Link>
-          <Link
-            href="#como-funciona"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Como funciona
-          </Link>
-          <Link
-            href={ROUTES.pricing}
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Preços
-          </Link>
-        </nav>
-
         <div className="flex items-center gap-2">
           <Button asChild size="sm">
             <Link href={ROUTES.login}>Começar agora</Link>

@@ -42,9 +42,6 @@ export function Hero() {
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
-            <Button asChild variant="ghost" size="lg" className="w-full sm:w-auto">
-              <Link href="#como-funciona">Ver como funciona</Link>
-            </Button>
           </div>
 
           <p className="mt-6 text-xs text-muted-foreground">

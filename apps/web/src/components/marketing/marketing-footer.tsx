@@ -14,9 +14,6 @@ export function MarketingFooter() {
           </span>
         </div>
         <nav className="flex items-center gap-6 text-xs text-muted-foreground">
-          <Link href={ROUTES.pricing} className="hover:text-foreground">
-            Preços
-          </Link>
           <Link href={ROUTES.login} className="hover:text-foreground">
             Entrar
           </Link>
