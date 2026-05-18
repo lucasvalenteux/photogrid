@@ -52,6 +52,15 @@
       "collectionGroup": "faceClusters",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "studioId", "order": "ASCENDING" },
+        { "fieldPath": "galleryId", "order": "ASCENDING" },
+        { "fieldPath": "photoCount", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "faceClusters",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "galleryId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "photoCount", "order": "DESCENDING" }

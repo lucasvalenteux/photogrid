@@ -134,17 +134,18 @@ export default function GalleryDetailPage() {
     isFaceClusteringEnabled() && effectiveFaceClusteringEnabled(studio);
 
   React.useEffect(() => {
-    if (!faceClusteringActive) {
+    if (!faceClusteringActive || !studio) {
       setClusters([]);
       return;
     }
     const unsubscribe = subscribeToOpenClusters(
+      studio.id,
       galleryId,
       setClusters,
       (error) => console.error('[face-clustering] subscription error', error),
     );
     return () => unsubscribe();
-  }, [galleryId, faceClusteringActive]);
+  }, [galleryId, faceClusteringActive, studio]);
 
   const shareUrl = useGalleryShareUrl(studio?.slug, galleryId);
   const isOwner = Boolean(studio && gallery && studio.id === gallery.studioId);

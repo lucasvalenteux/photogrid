@@ -170,8 +170,17 @@ export async function reprocessGalleryPhotos(
  * Live subscription for a gallery's open cluster suggestions. Clusters
  * with status === 'promoted' / 'dismissed' are filtered out client-side so
  * we can rely on a single composite index.
+ *
+ * The query must include `studioId` in the where clause even though it's
+ * functionally redundant (one studio per gallery): Firestore's security
+ * rules for queries evaluate via static analysis, and the rule on
+ * /faceClusters checks `ownsStudio(resource.data.studioId)`. Without
+ * matching the rule's field on the query side, Firestore can't prove
+ * every result will pass and rejects the entire subscription with
+ * "Missing or insufficient permissions".
  */
 export function subscribeToOpenClusters(
+  studioId: string,
   galleryId: string,
   onChange: (clusters: FaceClusterDoc[]) => void,
   onError?: (error: Error) => void,
@@ -182,6 +191,7 @@ export function subscribeToOpenClusters(
   }
   const q = query(
     faceClustersCollection(),
+    where('studioId', '==', studioId),
     where('galleryId', '==', galleryId),
     orderBy('photoCount', 'desc'),
   );
