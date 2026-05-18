@@ -9,8 +9,8 @@ import { ProtectedPhoto } from '@/components/public/protected-photo';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPublicAlbums,
-  fetchPublicGallery,
   fetchPublicGalleryPhotos,
+  fetchPublicGalleryWithAccess,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
 import { effectiveStudioSecurity } from '@/types';
@@ -23,32 +23,40 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, galleryId } = await params;
-  const [studio, gallery] = await Promise.all([
+  const [studio, access] = await Promise.all([
     fetchPublicStudioBySlug(slug),
-    fetchPublicGallery(galleryId),
+    fetchPublicGalleryWithAccess(galleryId),
   ]);
-  if (!studio || !gallery || gallery.studioId !== studio.id) {
+  if (!studio || !access || access.gallery.studioId !== studio.id) {
     return { title: 'Galeria não encontrada' };
   }
   const security = effectiveStudioSecurity(studio);
   return {
-    title: `${gallery.title} · ${studio.name}`,
-    description: gallery.description ?? undefined,
+    title: `${access.gallery.title} · ${studio.name}`,
+    description: access.gallery.description ?? undefined,
     other: security.antiAi ? { robots: 'noai, noimageai' } : {},
   };
 }
 
 export default async function PublicGalleryPage({ params }: Props) {
   const { slug, galleryId } = await params;
-  const [studio, gallery] = await Promise.all([
+  const [studio, access] = await Promise.all([
     fetchPublicStudioBySlug(slug),
-    fetchPublicGallery(galleryId),
+    fetchPublicGalleryWithAccess(galleryId),
   ]);
-  if (!studio || !gallery || gallery.studioId !== studio.id) notFound();
+  if (!studio || !access || access.gallery.studioId !== studio.id) notFound();
 
+  const { gallery, access: accessMode } = access;
+
+  // For `albums-only` (private gallery exposed via public albums) we
+  // deliberately skip the photos query — the gallery's own photos were
+  // never published. Fetch them only when the gallery itself is public
+  // or unlisted, i.e. when the visitor is allowed to see them.
   const [albums, photos] = await Promise.all([
     fetchPublicAlbums(gallery.id),
-    fetchPublicGalleryPhotos(gallery.id),
+    accessMode === 'full'
+      ? fetchPublicGalleryPhotos(gallery.id)
+      : Promise.resolve([]),
   ]);
   const security = effectiveStudioSecurity(studio);
   const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
@@ -75,39 +83,43 @@ export default async function PublicGalleryPage({ params }: Props) {
           ) : null}
         </header>
 
-        <section className="mt-10 space-y-4">
-          <div className="flex items-baseline justify-between">
-            <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-              Fotos
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              {photos.length} {photos.length === 1 ? 'foto' : 'fotos'}
-            </span>
-          </div>
+        {accessMode === 'full' ? (
+          <section className="mt-10 space-y-4">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                Fotos
+              </h2>
+              <span className="text-xs text-muted-foreground">
+                {photos.length} {photos.length === 1 ? 'foto' : 'fotos'}
+              </span>
+            </div>
 
-          {photos.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-              Nenhuma foto publicada nesta galeria ainda.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {photos.map((photo) => (
-                <ProtectedPhoto
-                  key={photo.id}
-                  src={photo.thumbnailUrl ?? photo.imageUrl}
-                  fullSrc={photo.imageUrl}
-                  alt={photo.fileName}
-                  studioName={studio.name}
-                  studioUrl={studioUrl}
-                  security={security}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+            {photos.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+                Nenhuma foto publicada nesta galeria ainda.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                {photos.map((photo) => (
+                  <ProtectedPhoto
+                    key={photo.id}
+                    src={photo.thumbnailUrl ?? photo.imageUrl}
+                    fullSrc={photo.imageUrl}
+                    alt={photo.fileName}
+                    studioName={studio.name}
+                    studioUrl={studioUrl}
+                    security={security}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
 
         {albums.length > 0 ? (
-          <section className="mt-12 space-y-4">
+          <section
+            className={accessMode === 'full' ? 'mt-12 space-y-4' : 'mt-10 space-y-4'}
+          >
             <div className="flex items-baseline justify-between">
               <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
                 Álbuns

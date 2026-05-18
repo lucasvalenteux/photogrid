@@ -75,15 +75,15 @@ export default async function PublicStudioPage({ params }: Props) {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {galleries.map((gallery) => (
+            {galleries.map(({ gallery, coverPhotoUrl, publicAlbumCount }) => (
               <Link
                 key={gallery.id}
                 href={ROUTES.publicGallery(studio.slug, gallery.id)}
                 className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
               >
-                {gallery.coverPhotoUrl ? (
+                {coverPhotoUrl ? (
                   <ProtectedPhoto
-                    src={gallery.coverPhotoUrl}
+                    src={coverPhotoUrl}
                     alt={gallery.title}
                     studioName={studio.name}
                     studioUrl={studioUrl}
@@ -109,8 +109,8 @@ export default async function PublicStudioPage({ params }: Props) {
                     </p>
                   ) : null}
                   <p className="pt-2 text-xs text-muted-foreground">
-                    {gallery.albumCount}{' '}
-                    {gallery.albumCount === 1 ? 'álbum' : 'álbuns'}
+                    {publicAlbumCount}{' '}
+                    {publicAlbumCount === 1 ? 'álbum' : 'álbuns'}
                   </p>
                 </div>
               </Link>

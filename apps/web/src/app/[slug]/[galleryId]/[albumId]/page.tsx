@@ -10,7 +10,7 @@ import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPhotosByIds,
   fetchPublicAlbum,
-  fetchPublicGallery,
+  fetchPublicGalleryWithAccess,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
 import { effectiveStudioSecurity } from '@/types';
@@ -39,20 +39,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PublicAlbumPage({ params }: Props) {
   const { slug, galleryId, albumId } = await params;
-  const [studio, gallery, album] = await Promise.all([
+  // We use the access-aware fetch here too — a public album inside a
+  // private gallery is still reachable, and we need the gallery doc to
+  // render the breadcrumb back to the gallery page.
+  const [studio, access, album] = await Promise.all([
     fetchPublicStudioBySlug(slug),
-    fetchPublicGallery(galleryId),
+    fetchPublicGalleryWithAccess(galleryId),
     fetchPublicAlbum(albumId),
   ]);
   if (
     !studio ||
-    !gallery ||
+    !access ||
     !album ||
-    gallery.studioId !== studio.id ||
-    album.galleryId !== gallery.id
+    access.gallery.studioId !== studio.id ||
+    album.galleryId !== access.gallery.id
   ) {
     notFound();
   }
+  const gallery = access.gallery;
 
   const photos = await fetchPhotosByIds(album.photoIds);
   const security = effectiveStudioSecurity(studio);
