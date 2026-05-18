@@ -1,6 +1,10 @@
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
-pydantic>=2.9.2
+# `[email]` pulls in `email-validator`, required by pydantic's EmailStr
+# type used in app/domain/models.py (User.email). Without this extra the
+# app raises ImportError at startup before uvicorn binds, and Railway's
+# healthcheck times out.
+pydantic[email]>=2.9.2
 pydantic-settings>=2.6.1
 firebase-admin>=6.5.0
 python-multipart>=0.0.20
