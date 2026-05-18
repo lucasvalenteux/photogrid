@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { APP_NAME, ROUTES } from '@photogrid/config';
+import { APP_DOMAIN, APP_NAME, ROUTES } from '@photogrid/config';
 
 import { ProtectedPhoto } from '@/components/public/protected-photo';
 import { StorefrontShell } from '@/components/public/storefront-shell';
@@ -55,6 +55,7 @@ export default async function PublicStudioPage({ params }: Props) {
 
   const galleries = await fetchPublicGalleries(studio.id);
   const security = effectiveStudioSecurity(studio);
+  const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
 
   return (
     <StorefrontShell studio={studio}>
@@ -85,6 +86,7 @@ export default async function PublicStudioPage({ params }: Props) {
                     src={gallery.coverPhotoUrl}
                     alt={gallery.title}
                     studioName={studio.name}
+                    studioUrl={studioUrl}
                     security={security}
                     interactive="none"
                     aspect="aspect-[5/4]"

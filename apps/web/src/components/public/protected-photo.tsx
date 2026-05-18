@@ -35,6 +35,12 @@ export interface ProtectedPhotoProps {
   fullSrc?: string;
   alt: string;
   studioName: string;
+  /**
+   * Bare-domain URL shown as a second line in the watermark, e.g.
+   * `photogrid.store/estudio-teste`. Optional — when omitted, only the
+   * studio name is tiled.
+   */
+  studioUrl?: string;
   security: Required<StudioSecuritySettings>;
   /**
    * How the photo behaves when clicked:
@@ -59,6 +65,7 @@ export function ProtectedPhoto({
   fullSrc,
   alt,
   studioName,
+  studioUrl,
   security,
   interactive = 'full-image',
   aspect = 'aspect-square',
@@ -140,7 +147,9 @@ export function ProtectedPhoto({
         />
       ) : null}
 
-      {watermark ? <WatermarkOverlay studioName={studioName} /> : null}
+      {watermark ? (
+        <WatermarkOverlay studioName={studioName} studioUrl={studioUrl} />
+      ) : null}
 
       {antiAi ? <AntiAiNoiseOverlay /> : null}
     </figure>
@@ -148,42 +157,67 @@ export function ProtectedPhoto({
 }
 
 /**
- * Tiled diagonal watermark with the studio name.
+ * Tiled diagonal watermark with the studio name (and, when provided,
+ * the studio's photogrid URL stacked underneath on a second line).
  *
  * Earlier versions used a CSS grid of `<span>` elements. Cells were
  * narrower than the rendered text, so anything past the first few
  * characters of the studio name was clipped by the cell boundary
  * (especially after rotation). The fix is to stop tiling at the DOM
  * level and instead render a single SVG tile that contains the *full*
- * studio name, then let CSS `background-repeat` lay it out.
+ * watermark, then let CSS `background-repeat` lay it out.
  *
  * Properties of this approach:
- *   - Each repetition is guaranteed to show the complete name — the
- *     tile width scales with the string length, so long studio names
- *     (e.g. "DB Studio Photography") get a wider tile instead of being
- *     truncated.
- *   - Tile height controls vertical density. With `tileHeight = 50`
- *     we get roughly twice as many horizontal bands as the old layout
- *     across a square thumbnail.
+ *   - Each repetition is guaranteed to show the complete name (and URL,
+ *     when present). Tile width scales with the longer of the two
+ *     strings so neither line ever gets truncated.
+ *   - When `studioUrl` is provided, the tile contains two text rows:
+ *     a bigger "© NAME" row on top and a smaller, lower-case URL row
+ *     below. As the background repeats, the two rows alternate
+ *     vertically across the whole image, which doubles the amount of
+ *     information a screenshot has to keep around.
  *   - The `paint-order='stroke'` trick draws a soft dark outline under
  *     the white text so it's legible on both bright skin tones and
  *     dark fabric — no `text-shadow` needed.
  */
-function WatermarkOverlay({ studioName }: { studioName: string }) {
-  const label = `© ${studioName}`.toUpperCase();
-  // Width grows with the name so the full text always fits inside a
-  // single tile. The +4 keeps a comfortable margin around the text so
-  // adjacent tiles don't visually butt up against each other.
-  const tileWidth = Math.max(320, (label.length + 4) * 13);
-  const tileHeight = 50;
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tileWidth}' height='${tileHeight}'>
-    <text x='50%' y='50%' text-anchor='middle' dominant-baseline='middle'
-          font-family='system-ui, -apple-system, sans-serif'
-          font-size='14' font-weight='600' letter-spacing='2.5'
-          fill='white' fill-opacity='0.7'
-          stroke='black' stroke-opacity='0.55' stroke-width='0.6'
-          paint-order='stroke'>${escapeXml(label)}</text>
-  </svg>`;
+function WatermarkOverlay({
+  studioName,
+  studioUrl,
+}: {
+  studioName: string;
+  studioUrl?: string;
+}) {
+  const nameLine = `© ${studioName}`.toUpperCase();
+  const urlLine = studioUrl ?? '';
+
+  // Width grows with whichever line is longer (the URL is usually the
+  // longer one). The +4 leaves comfortable margin so adjacent tiles
+  // don't butt up against each other once the background repeats.
+  const widthDriver = Math.max(nameLine.length, urlLine.length);
+  const tileWidth = Math.max(340, (widthDriver + 4) * 12);
+
+  // 50px per logical row. With a URL line, that means the full tile is
+  // 100px tall and the two text rows alternate vertically across the
+  // photo — twice the bands compared to the name-only layout.
+  const tileHeight = urlLine ? 100 : 50;
+
+  const nameText = `<text x='50%' y='${urlLine ? 25 : 25}' text-anchor='middle' dominant-baseline='middle'
+        font-family='system-ui, -apple-system, sans-serif'
+        font-size='14' font-weight='600' letter-spacing='2.5'
+        fill='white' fill-opacity='0.7'
+        stroke='black' stroke-opacity='0.55' stroke-width='0.6'
+        paint-order='stroke'>${escapeXml(nameLine)}</text>`;
+
+  const urlText = urlLine
+    ? `<text x='50%' y='75' text-anchor='middle' dominant-baseline='middle'
+        font-family='system-ui, -apple-system, sans-serif'
+        font-size='11' font-weight='500' letter-spacing='1.2'
+        fill='white' fill-opacity='0.6'
+        stroke='black' stroke-opacity='0.5' stroke-width='0.5'
+        paint-order='stroke'>${escapeXml(urlLine)}</text>`
+    : '';
+
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tileWidth}' height='${tileHeight}'>${nameText}${urlText}</svg>`;
   const backgroundImage = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
   return (
     <div

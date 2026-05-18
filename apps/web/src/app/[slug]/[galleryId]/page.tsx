@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
-import { ROUTES } from '@photogrid/config';
+import { APP_DOMAIN, ROUTES } from '@photogrid/config';
 
 import { ProtectedPhoto } from '@/components/public/protected-photo';
 import { StorefrontShell } from '@/components/public/storefront-shell';
@@ -51,6 +51,7 @@ export default async function PublicGalleryPage({ params }: Props) {
     fetchPublicGalleryPhotos(gallery.id),
   ]);
   const security = effectiveStudioSecurity(studio);
+  const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
 
   return (
     <StorefrontShell studio={studio}>
@@ -97,6 +98,7 @@ export default async function PublicGalleryPage({ params }: Props) {
                   fullSrc={photo.imageUrl}
                   alt={photo.fileName}
                   studioName={studio.name}
+                  studioUrl={studioUrl}
                   security={security}
                 />
               ))}
@@ -126,6 +128,7 @@ export default async function PublicGalleryPage({ params }: Props) {
                       src={album.coverPhotoUrl}
                       alt={album.title}
                       studioName={studio.name}
+                      studioUrl={studioUrl}
                       security={security}
                       interactive="none"
                       aspect="aspect-[5/4]"
