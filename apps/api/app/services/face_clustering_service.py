@@ -41,10 +41,20 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 # Cosine similarity threshold above which a face is considered a match for
-# an existing cluster. ArcFace embeddings tend to cluster very tightly
-# (same person ≈ 0.55+, different person ≈ 0.05–0.30) so 0.40 is a safe,
-# slightly conservative default. Bump higher if you see false-merges.
-SIMILARITY_THRESHOLD = 0.40
+# an existing cluster. ArcFace embeddings cluster very tightly — same
+# person typically sits at 0.45-0.80 with `buffalo_sc`, different people
+# at 0.05-0.25 — so we have a wide safety gap. 0.32 favours recall (fewer
+# false splits where the same person ends up in two clusters), which is
+# the right tradeoff for a human-in-the-loop UX where the photographer
+# reviews suggestions before promoting them to albums. Bump back to 0.40+
+# if false-merges become common.
+SIMILARITY_THRESHOLD = 0.32
+
+# Centroid-to-centroid similarity threshold for collapsing two existing
+# clusters into one. Held slightly above `SIMILARITY_THRESHOLD` because
+# centroid drift makes early splits hard to recover from — we want to be
+# confident before merging.
+MERGE_THRESHOLD = 0.42
 
 # Faces below this score are treated as low-confidence noise (blurred
 # bystanders, profile shots through windows, etc.) and skipped.
@@ -256,7 +266,148 @@ class FaceClusteringService:
             studio_id=studio_id,
             faces=filtered,
         )
+
+        # Opportunistic consolidation: if centroid drift has pushed two
+        # clusters close enough together to be the same person, merge them
+        # now. Cheap (O(K²) on cluster count, typically K < 20) and keeps
+        # the suggestions tidy without requiring the user to click anything.
+        if filtered:
+            try:
+                self.consolidate_clusters(gallery_id)
+            except Exception:
+                logger.exception(
+                    "Failed to consolidate clusters for gallery %s", gallery_id
+                )
+
         return list(touched_clusters.values())
+
+    # ---------------------------------------------------------- consolidation
+
+    def consolidate_clusters(self, gallery_id: str) -> int:
+        """Greedy pairwise merge of clusters whose centroids overlap.
+
+        Strategy:
+          - List all clusters in the gallery, ignoring promoted / dismissed
+            ones (frozen on purpose).
+          - Sort by photo count desc so the largest cluster absorbs smaller
+            neighbours — this keeps the representative-photo trail intact
+            for the cluster most likely to already match the user's mental
+            model of "that person".
+          - Walk pairs greedily, merging any pair whose centroids exceed
+            `MERGE_THRESHOLD`. The absorbed cluster's photoIds, photoCount,
+            and a possibly stronger representative photo flow upward into
+            the surviving cluster, then the absorbed doc is deleted.
+
+        Returns the number of clusters that were absorbed (deleted).
+        """
+        clusters = [
+            c for c in self._clusters.list_for_gallery(gallery_id)
+            if c.status == "open"
+        ]
+        if len(clusters) < 2:
+            return 0
+
+        clusters.sort(key=lambda c: c.photo_count, reverse=True)
+        absorbed_ids: set[str] = set()
+
+        for i, primary in enumerate(clusters):
+            if primary.id in absorbed_ids:
+                continue
+            primary_centroid = np.asarray(primary.centroid, dtype=np.float32)
+            for secondary in clusters[i + 1 :]:
+                if secondary.id in absorbed_ids:
+                    continue
+                sec_centroid = np.asarray(secondary.centroid, dtype=np.float32)
+                if primary_centroid.shape != sec_centroid.shape:
+                    continue
+                similarity = float(np.dot(primary_centroid, sec_centroid))
+                if similarity < MERGE_THRESHOLD:
+                    continue
+                merged_centroid, merged_ids, merged_count = self._compute_merge(
+                    primary, secondary
+                )
+                rep_patch = self._pick_better_representative(primary, secondary)
+                try:
+                    self._clusters.absorb(
+                        primary.id,
+                        new_centroid=merged_centroid.tolist(),
+                        new_photo_ids=merged_ids,
+                        new_photo_count=merged_count,
+                        better_representative=rep_patch,
+                    )
+                    self._clusters.delete(secondary.id)
+                except Exception:
+                    # Another concurrent worker may have already merged
+                    # one of these — log and move on rather than failing
+                    # the whole consolidation pass.
+                    logger.exception(
+                        "Merge failed for primary=%s secondary=%s",
+                        primary.id,
+                        secondary.id,
+                    )
+                    continue
+                # Mirror the merge in our in-memory copy so subsequent
+                # comparisons in this loop use the updated centroid.
+                primary.centroid = merged_centroid.tolist()
+                primary.photo_ids = merged_ids
+                primary.photo_count = merged_count
+                if rep_patch is not None:
+                    primary.representative_photo_id = rep_patch[
+                        "representativePhotoId"
+                    ]
+                    primary.representative_photo_url = rep_patch[
+                        "representativePhotoUrl"
+                    ]
+                    primary.representative_thumbnail_url = rep_patch[
+                        "representativeThumbnailUrl"
+                    ]
+                    primary.representative_bbox = rep_patch["representativeBbox"]
+                    primary.representative_score = rep_patch[
+                        "representativeScore"
+                    ]
+                primary_centroid = np.asarray(
+                    primary.centroid, dtype=np.float32
+                )
+                absorbed_ids.add(secondary.id)
+
+        return len(absorbed_ids)
+
+    @staticmethod
+    def _compute_merge(
+        primary: FaceCluster, secondary: FaceCluster
+    ) -> tuple[np.ndarray, list[str], int]:
+        """Weighted-mean centroid + deduplicated photo set."""
+        p_cent = np.asarray(primary.centroid, dtype=np.float32)
+        s_cent = np.asarray(secondary.centroid, dtype=np.float32)
+        merged_vec = (
+            p_cent * primary.photo_count + s_cent * secondary.photo_count
+        )
+        merged_centroid = _l2_normalise(merged_vec)
+        # Order-preserving dedupe: primary photos first, then any from
+        # secondary that aren't already in the set.
+        seen = set(primary.photo_ids)
+        merged_ids = list(primary.photo_ids)
+        for pid in secondary.photo_ids:
+            if pid in seen:
+                continue
+            seen.add(pid)
+            merged_ids.append(pid)
+        return merged_centroid, merged_ids, len(merged_ids)
+
+    @staticmethod
+    def _pick_better_representative(
+        primary: FaceCluster, secondary: FaceCluster
+    ) -> dict | None:
+        """Promote the secondary's representative when it's a stronger face."""
+        if secondary.representative_score <= primary.representative_score:
+            return None
+        return {
+            "representativePhotoId": secondary.representative_photo_id,
+            "representativePhotoUrl": secondary.representative_photo_url,
+            "representativeThumbnailUrl": secondary.representative_thumbnail_url,
+            "representativeBbox": secondary.representative_bbox,
+            "representativeScore": secondary.representative_score,
+        }
 
     # ------------------------------------------------------- internal helpers
 

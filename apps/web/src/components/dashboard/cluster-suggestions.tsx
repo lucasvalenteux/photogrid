@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { RefreshCw, Sparkles, X } from 'lucide-react';
+import { Merge, RefreshCw, Sparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button, cn } from '@photogrid/ui';
@@ -26,6 +26,14 @@ interface ClusterSuggestionsProps {
    */
   onReprocess?: () => void;
   reprocessing?: boolean;
+  /**
+   * Manual "consolidate" handler — merges clusters whose centroids are
+   * close enough to be the same person. Only meaningful when there's
+   * more than one open cluster; the gallery page hides the button
+   * otherwise.
+   */
+  onConsolidate?: () => void;
+  consolidating?: boolean;
   /** Total photo count — used to gate the empty-state copy. */
   photoCount: number;
 }
@@ -48,9 +56,12 @@ export function ClusterSuggestions({
   onPromoted,
   onReprocess,
   reprocessing = false,
+  onConsolidate,
+  consolidating = false,
   photoCount,
 }: ClusterSuggestionsProps) {
   const hasClusters = clusters.length > 0;
+  const canConsolidate = clusters.length >= 2;
 
   return (
     <section className="space-y-3">
@@ -65,12 +76,27 @@ export function ClusterSuggestions({
               {clusters.length} {clusters.length === 1 ? 'pessoa' : 'pessoas'}
             </span>
           ) : null}
+          {onConsolidate && canConsolidate ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onConsolidate}
+              disabled={consolidating || reprocessing}
+              className="h-8 gap-1.5 px-2 text-xs text-muted-foreground"
+              title="Mescla automaticamente pessoas iguais que apareceram separadas"
+            >
+              <Merge
+                className={cn('size-3.5', consolidating && 'animate-pulse')}
+              />
+              {consolidating ? 'Consolidando…' : 'Consolidar pessoas'}
+            </Button>
+          ) : null}
           {onReprocess ? (
             <Button
               size="sm"
               variant="ghost"
               onClick={onReprocess}
-              disabled={reprocessing}
+              disabled={reprocessing || consolidating}
               className="h-8 gap-1.5 px-2 text-xs text-muted-foreground"
             >
               <RefreshCw

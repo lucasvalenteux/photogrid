@@ -131,6 +131,36 @@ class FaceClusterRepository:
             {"status": "dismissed", "updatedAt": datetime.now(timezone.utc)}
         )
 
+    def absorb(
+        self,
+        cluster_id: str,
+        *,
+        new_centroid: list[float],
+        new_photo_ids: list[str],
+        new_photo_count: int,
+        better_representative: dict | None = None,
+    ) -> None:
+        """Replace a cluster's centroid + membership wholesale.
+
+        Used by the consolidation pass to fold one cluster into another.
+        We can't rely on `ArrayUnion` here because the caller has already
+        deduped the merged photo list, and `Increment` would double-count
+        if applied to the absorbing side.
+        """
+        patch: dict = {
+            "centroid": new_centroid,
+            "photoIds": new_photo_ids,
+            "photoCount": new_photo_count,
+            "updatedAt": datetime.now(timezone.utc),
+        }
+        if better_representative is not None:
+            patch.update(better_representative)
+        self._col.document(cluster_id).update(patch)
+
+    def delete(self, cluster_id: str) -> None:
+        """Hard-delete a single cluster doc."""
+        self._col.document(cluster_id).delete()
+
     def remove_photo(self, cluster_id: str, photo_id: str) -> None:
         """Hard-delete the photo from a cluster.
 

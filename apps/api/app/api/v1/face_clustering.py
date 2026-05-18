@@ -279,3 +279,31 @@ def dismiss_cluster(
             status_code=status.HTTP_404_NOT_FOUND, detail="Cluster not found."
         )
     face_clusters.mark_dismissed(cluster_id)
+
+
+@router.post(
+    "/galleries/{gallery_id}/consolidate",
+    summary="Merge clusters with overlapping centroids",
+)
+def consolidate_gallery(
+    gallery_id: str,
+    user: CurrentUser,
+    service: StudioServiceDep,
+    galleries: GalleryRepoDep,
+    clustering: FaceClusteringServiceDep,
+) -> dict[str, int | str]:
+    """Run the centroid-overlap merge pass for a single gallery.
+
+    Useful right after a backfill (when the same person ends up in
+    several near-duplicate clusters) or any time the photographer wants
+    to clean up suggestions. Idempotent — clusters whose centroids are
+    well separated stay untouched.
+    """
+    studio_id = _require_studio_id(user.uid, service)
+    gallery = galleries.get_by_id(gallery_id)
+    if gallery is None or gallery.studio_id != studio_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gallery not found."
+        )
+    merged = clustering.consolidate_clusters(gallery_id)
+    return {"galleryId": gallery_id, "merged": merged}

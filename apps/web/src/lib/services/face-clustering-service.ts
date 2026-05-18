@@ -249,3 +249,28 @@ export async function dismissCluster(clusterId: string): Promise<void> {
     throw new Error(`Falha ao descartar sugestão: ${resp.status} ${detail}`);
   }
 }
+
+export interface ConsolidateResult {
+  /** Number of clusters absorbed (merged into a larger one). */
+  merged: number;
+}
+
+/**
+ * Trigger a centroid-overlap merge pass on a gallery. Cheap and
+ * idempotent — safe to call after any batch operation that may have
+ * produced near-duplicate clusters (e.g. `reprocessGalleryPhotos`).
+ */
+export async function consolidateClusters(
+  galleryId: string,
+): Promise<ConsolidateResult> {
+  if (!ENABLED) return { merged: 0 };
+  const resp = await authedFetch(
+    `/api/v1/face-clustering/galleries/${encodeURIComponent(galleryId)}/consolidate`,
+    { method: 'POST' },
+  );
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`Falha ao consolidar: ${resp.status} ${detail}`);
+  }
+  return (await resp.json()) as ConsolidateResult;
+}

@@ -26,6 +26,7 @@ import {
 import { useAuth } from '@/lib/hooks/use-auth';
 import { subscribeToAlbums } from '@/lib/services/album-service';
 import {
+  consolidateClusters,
   isFaceClusteringEnabled,
   reprocessGalleryPhotos,
   subscribeToOpenClusters,
@@ -213,6 +214,33 @@ export default function GalleryDetailPage() {
     }
   };
 
+  // Manual consolidation — folds clusters whose centroids drifted close
+  // enough to be the same person. Cheap on the API side (no model
+  // inference, just dot products), so a button is a nicer UX than
+  // waiting for the next upload to trigger it implicitly.
+  const [consolidating, setConsolidating] = React.useState(false);
+  const onConsolidate = async () => {
+    if (consolidating || clusters.length < 2) return;
+    setConsolidating(true);
+    try {
+      const result = await consolidateClusters(galleryId);
+      if (result.merged === 0) {
+        toast.info('Nada a consolidar — as pessoas já estão bem separadas.');
+      } else {
+        toast.success(
+          `${result.merged} ${result.merged === 1 ? 'duplicado' : 'duplicados'} mesclado(s) automaticamente.`,
+        );
+      }
+    } catch (error) {
+      console.error('[face-clustering] consolidate error', error);
+      const message =
+        error instanceof Error ? error.message : 'Falha ao consolidar.';
+      toast.error(message);
+    } finally {
+      setConsolidating(false);
+    }
+  };
+
   const onDeleteConfirmed = async () => {
     await deleteGallery(galleryId);
     toast.success('Galeria excluída.');
@@ -310,6 +338,8 @@ export default function GalleryDetailPage() {
           galleryTitle={gallery.title}
           onReprocess={photos.length > 0 ? onReprocess : undefined}
           reprocessing={reprocessing}
+          onConsolidate={onConsolidate}
+          consolidating={consolidating}
           photoCount={photos.length}
         />
       ) : null}
