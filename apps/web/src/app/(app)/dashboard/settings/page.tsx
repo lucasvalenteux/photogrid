@@ -218,7 +218,7 @@ export default function SettingsPage() {
           <SecurityRow
             id="security-antiai"
             label="Proteção anti-IA"
-            description="Adiciona uma camada de ruído sobre as fotos e adensa a marca d'água, criando artefatos quando alguém tenta usar IA pra remover a proteção ou reconstruir o print. Também sinaliza que o conteúdo não deve ser usado para treinamento (noai/noimageai)."
+            description="Sobrepõe uma camada de ruído quase imperceptível que gera artefatos quando alguém usa IA pra limpar ou recriar o print. Também sinaliza às IAs (GPTBot, Claude, Google-Extended, etc.) que o conteúdo não deve ser usado para treinamento."
             checked={security.antiAi}
             disabled={!studio || savingSecurity.antiAi}
             onChange={(next) => onToggleSecurity('antiAi', next)}

@@ -140,9 +140,7 @@ export function ProtectedPhoto({
         />
       ) : null}
 
-      {watermark ? (
-        <WatermarkOverlay studioName={studioName} dense={antiAi} />
-      ) : null}
+      {watermark ? <WatermarkOverlay studioName={studioName} /> : null}
 
       {antiAi ? <AntiAiNoiseOverlay /> : null}
     </figure>
@@ -150,53 +148,32 @@ export function ProtectedPhoto({
 }
 
 /**
- * Tiled diagonal watermark with the studio name. Implemented with a
- * single absolutely-positioned grid so the tile density adapts to the
- * container's natural aspect ratio without media queries.
+ * Tiled diagonal watermark with the studio name.
  *
- * When `dense` is true (anti-AI mode), a second layer is stacked at an
- * opposite angle. Two intersecting watermark grids are dramatically
- * harder for generative inpainting models to remove cleanly — they
- * tend to leave swirly artefacts where the text crosses itself.
+ * Design goals:
+ *   - The studio name has to be *readable*. The earlier 5×7 grid packed
+ *     so many copies into a typical landscape thumbnail that they
+ *     overlapped each other after rotation and the text turned into
+ *     visual noise.
+ *   - Still cover enough of the photo that a casual screenshot won't
+ *     come out clean.
+ *
+ * The 3×4 layout below gives each repetition real breathing room while
+ * still placing a watermark across the focal area of any aspect ratio
+ * we ship (square thumbnails, 5/4 covers, portrait phone shots, etc.).
  */
-function WatermarkOverlay({
-  studioName,
-  dense = false,
-}: {
-  studioName: string;
-  dense?: boolean;
-}) {
-  return (
-    <>
-      <WatermarkLayer studioName={studioName} angle={-18} />
-      {dense ? <WatermarkLayer studioName={studioName} angle={14} /> : null}
-    </>
-  );
-}
-
-function WatermarkLayer({
-  studioName,
-  angle,
-}: {
-  studioName: string;
-  angle: number;
-}) {
-  // 5×7 grid is dense enough to survive moderate crops while still
-  // leaving room for the photo to breathe. Each cell renders the same
-  // text — the visual variety comes from rotation + the underlying
-  // photo, not from per-cell tweaks.
-  const cells = Array.from({ length: 35 });
+function WatermarkOverlay({ studioName }: { studioName: string }) {
+  const cells = Array.from({ length: 12 });
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 scale-125"
-      style={{ transform: `rotate(${angle}deg) scale(1.25)` }}
+      className="pointer-events-none absolute inset-0 -rotate-[20deg] scale-125"
     >
-      <div className="grid h-full w-full grid-cols-5 grid-rows-7 place-items-center gap-0">
+      <div className="grid h-full w-full grid-cols-3 grid-rows-4 place-items-center gap-0">
         {cells.map((_, index) => (
           <span
             key={index}
-            className="select-none whitespace-nowrap text-[10px] font-medium uppercase tracking-[0.18em] text-white/55 [text-shadow:0_1px_2px_rgba(0,0,0,0.45)] sm:text-xs"
+            className="select-none whitespace-nowrap text-xs font-semibold uppercase tracking-[0.22em] text-white/70 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)] sm:text-sm"
           >
             © {studioName}
           </span>

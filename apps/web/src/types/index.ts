@@ -36,16 +36,20 @@ export interface StudioSecuritySettings {
   disableRightClick?: boolean;
   /**
    * Anti-AI defenses for users who screenshot the gallery and try to
-   * "remove watermark / upscale" via generative AI. Stacks two layers:
-   *   1. A procedural noise overlay (SVG fractal turbulence) that
-   *      survives screenshots and produces visible artefacts when an
-   *      inpainting model tries to clean it up.
-   *   2. An extra horizontal watermark band on top of the diagonal one,
-   *      making the text harder to inpaint out cleanly.
+   * "remove watermark / upscale" via generative AI.
    *
-   * Also opts the storefront into `robots.txt` / `noai` / `noimageai`
-   * directives so well-behaved AI crawlers (GPTBot, CCBot, Claude-Web,
-   * Google-Extended, etc.) won't ingest the photos for training.
+   * Adds a procedural fractal-noise overlay above the photo. The noise
+   * survives screenshots (it's a real CSS layer) and falls in the
+   * frequency band that diffusion / super-resolution models hallucinate
+   * over — denoisers either preserve the pattern (defeating the
+   * upscale) or smear it (visible artefacts around faces and edges).
+   *
+   * Independent from the `watermark` setting: turning this on does not
+   * change how the studio name is rendered.
+   *
+   * Also opts the storefront into `noai` / `noimageai` meta tags so
+   * well-behaved AI crawlers (GPTBot, CCBot, Claude-Web, Google-Extended,
+   * etc.) won't ingest the photos for training.
    */
   antiAi?: boolean;
 }
