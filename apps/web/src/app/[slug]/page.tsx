@@ -4,11 +4,13 @@ import { notFound } from 'next/navigation';
 
 import { APP_NAME, ROUTES } from '@photogrid/config';
 
+import { ProtectedPhoto } from '@/components/public/protected-photo';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPublicGalleries,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
+import { effectiveStudioSecurity } from '@/types';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -39,6 +41,7 @@ export default async function PublicStudioPage({ params }: Props) {
   if (!studio) notFound();
 
   const galleries = await fetchPublicGalleries(studio.id);
+  const security = effectiveStudioSecurity(studio);
 
   return (
     <StorefrontShell studio={studio}>
@@ -64,22 +67,23 @@ export default async function PublicStudioPage({ params }: Props) {
                 href={ROUTES.publicGallery(studio.slug, gallery.id)}
                 className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
               >
-                <div className="relative aspect-[5/4] w-full overflow-hidden bg-muted">
-                  {gallery.coverPhotoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={gallery.coverPhotoUrl}
-                      alt={gallery.title}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    />
-                  ) : (
+                {gallery.coverPhotoUrl ? (
+                  <ProtectedPhoto
+                    src={gallery.coverPhotoUrl}
+                    alt={gallery.title}
+                    studioName={studio.name}
+                    security={security}
+                    interactive="none"
+                    aspect="aspect-[5/4]"
+                    className="rounded-none"
+                  />
+                ) : (
+                  <div className="relative aspect-[5/4] w-full overflow-hidden bg-muted">
                     <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-line text-xs font-medium uppercase tracking-wide text-mute">
                       Sem capa
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
                 <div className="space-y-1 p-5">
                   <h2 className="text-base font-semibold tracking-tight text-ink">
                     {gallery.title}

@@ -111,4 +111,18 @@ export async function updateStudioFaceClustering(
   await updateDoc(studioDoc(studioId), { faceClusteringEnabled: enabled });
 }
 
+/**
+ * Update a single field inside the studio's `security` object. We patch
+ * via dot-notation (`security.<key>`) so concurrent flips of different
+ * toggles don't clobber each other — Firestore merges them at the
+ * field level instead of overwriting the whole object.
+ */
+export async function updateStudioSecurity(
+  studioId: string,
+  key: 'dimPhotos' | 'watermark' | 'disableRightClick',
+  value: boolean,
+): Promise<void> {
+  await updateDoc(studioDoc(studioId), { [`security.${key}`]: value });
+}
+
 export const STUDIO_COLLECTION = FIRESTORE_COLLECTIONS.studios;

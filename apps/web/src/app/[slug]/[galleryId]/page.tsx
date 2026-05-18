@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 
 import { ROUTES } from '@photogrid/config';
 
+import { ProtectedPhoto } from '@/components/public/protected-photo';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPublicAlbums,
@@ -12,6 +13,7 @@ import {
   fetchPublicGalleryPhotos,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
+import { effectiveStudioSecurity } from '@/types';
 
 interface Props {
   params: Promise<{ slug: string; galleryId: string }>;
@@ -46,6 +48,7 @@ export default async function PublicGalleryPage({ params }: Props) {
     fetchPublicAlbums(gallery.id),
     fetchPublicGalleryPhotos(gallery.id),
   ]);
+  const security = effectiveStudioSecurity(studio);
 
   return (
     <StorefrontShell studio={studio}>
@@ -86,26 +89,14 @@ export default async function PublicGalleryPage({ params }: Props) {
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {photos.map((photo) => (
-                <figure
+                <ProtectedPhoto
                   key={photo.id}
-                  className="group relative aspect-square overflow-hidden rounded-lg bg-muted"
-                >
-                  <a
-                    href={photo.imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Abrir ${photo.fileName} em nova aba`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.thumbnailUrl ?? photo.imageUrl}
-                      alt={photo.fileName}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    />
-                  </a>
-                </figure>
+                  src={photo.thumbnailUrl ?? photo.imageUrl}
+                  fullSrc={photo.imageUrl}
+                  alt={photo.fileName}
+                  studioName={studio.name}
+                  security={security}
+                />
               ))}
             </div>
           )}
@@ -128,22 +119,23 @@ export default async function PublicGalleryPage({ params }: Props) {
                   href={ROUTES.publicAlbum(studio.slug, gallery.id, album.id)}
                   className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className="relative aspect-[5/4] w-full overflow-hidden bg-muted">
-                    {album.coverPhotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={album.coverPhotoUrl}
-                        alt={album.title}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                      />
-                    ) : (
+                  {album.coverPhotoUrl ? (
+                    <ProtectedPhoto
+                      src={album.coverPhotoUrl}
+                      alt={album.title}
+                      studioName={studio.name}
+                      security={security}
+                      interactive="none"
+                      aspect="aspect-[5/4]"
+                      className="rounded-none"
+                    />
+                  ) : (
+                    <div className="relative aspect-[5/4] w-full overflow-hidden bg-muted">
                       <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-line text-xs font-medium uppercase tracking-wide text-mute">
                         Sem capa
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                   <div className="space-y-1 p-5">
                     <h2 className="text-base font-semibold tracking-tight text-ink">
                       {album.title}

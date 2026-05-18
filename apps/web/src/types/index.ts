@@ -15,6 +15,27 @@ export interface UserDoc {
   createdAt: string;
 }
 
+/**
+ * Per-studio photo-protection toggles. Every flag defaults to `false`
+ * (no protection) for backwards compatibility — see
+ * `effectiveStudioSecurity` for the canonical reader.
+ *
+ * These settings only affect the **public storefront**. The owner's
+ * dashboard always shows clean, undimmed photos so editing decisions
+ * aren't compromised.
+ */
+export interface StudioSecuritySettings {
+  /** Dims photos with a CSS opacity reduction + dark overlay. */
+  dimPhotos?: boolean;
+  /** Tiled watermark with the studio name across each photo. */
+  watermark?: boolean;
+  /**
+   * Disables the browser context menu, image drag, and the click-through
+   * link that exposes the raw image URL.
+   */
+  disableRightClick?: boolean;
+}
+
 export interface StudioDoc {
   id: string;
   ownerId: string;
@@ -26,6 +47,8 @@ export interface StudioDoc {
    * as `true` by `effectiveFaceClusteringEnabled`.
    */
   faceClusteringEnabled?: boolean;
+  /** Public storefront photo-protection toggles. */
+  security?: StudioSecuritySettings;
   createdAt: string;
 }
 
@@ -39,6 +62,22 @@ export function effectiveFaceClusteringEnabled(
 ): boolean {
   if (!studio) return true;
   return studio.faceClusteringEnabled !== false;
+}
+
+/**
+ * Resolve a studio's photo-protection settings to a fully-populated
+ * object with explicit booleans. Lets callers destructure safely
+ * without `?? false` everywhere they read a flag.
+ */
+export function effectiveStudioSecurity(
+  studio: Pick<StudioDoc, 'security'> | null | undefined,
+): Required<StudioSecuritySettings> {
+  const s = studio?.security ?? {};
+  return {
+    dimPhotos: s.dimPhotos === true,
+    watermark: s.watermark === true,
+    disableRightClick: s.disableRightClick === true,
+  };
 }
 
 export interface GalleryDoc {

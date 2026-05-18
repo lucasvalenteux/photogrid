@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 
 import { ROUTES } from '@photogrid/config';
 
+import { ProtectedPhoto } from '@/components/public/protected-photo';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPhotosByIds,
@@ -12,6 +13,7 @@ import {
   fetchPublicGallery,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
+import { effectiveStudioSecurity } from '@/types';
 
 interface Props {
   params: Promise<{ slug: string; galleryId: string; albumId: string }>;
@@ -51,6 +53,7 @@ export default async function PublicAlbumPage({ params }: Props) {
   }
 
   const photos = await fetchPhotosByIds(album.photoIds);
+  const security = effectiveStudioSecurity(studio);
 
   return (
     <StorefrontShell studio={studio}>
@@ -82,26 +85,14 @@ export default async function PublicAlbumPage({ params }: Props) {
           ) : (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {photos.map((photo) => (
-                <figure
+                <ProtectedPhoto
                   key={photo.id}
-                  className="group relative aspect-square overflow-hidden rounded-lg bg-muted"
-                >
-                  <a
-                    href={photo.imageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Abrir ${photo.fileName} em nova aba`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photo.thumbnailUrl ?? photo.imageUrl}
-                      alt={photo.fileName}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    />
-                  </a>
-                </figure>
+                  src={photo.thumbnailUrl ?? photo.imageUrl}
+                  fullSrc={photo.imageUrl}
+                  alt={photo.fileName}
+                  studioName={studio.name}
+                  security={security}
+                />
               ))}
             </div>
           )}
