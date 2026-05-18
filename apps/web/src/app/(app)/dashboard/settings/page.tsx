@@ -25,7 +25,7 @@ import {
   effectiveStudioSecurity,
 } from '@/types';
 
-type SecurityKey = 'dimPhotos' | 'watermark' | 'disableRightClick';
+type SecurityKey = 'dimPhotos' | 'watermark' | 'disableRightClick' | 'antiAi';
 
 export default function SettingsPage() {
   const { studio, user } = useAuth();
@@ -70,17 +70,23 @@ export default function SettingsPage() {
   const [security, setSecurity] = React.useState(persistedSecurity);
   const [savingSecurity, setSavingSecurity] = React.useState<
     Record<SecurityKey, boolean>
-  >({ dimPhotos: false, watermark: false, disableRightClick: false });
+  >({
+    dimPhotos: false,
+    watermark: false,
+    disableRightClick: false,
+    antiAi: false,
+  });
 
   React.useEffect(() => {
     setSecurity(persistedSecurity);
     // We don't depend on the object identity (would loop) — flatten to
-    // the three boolean primitives so React skips spurious updates.
+    // the boolean primitives so React skips spurious updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     persistedSecurity.dimPhotos,
     persistedSecurity.watermark,
     persistedSecurity.disableRightClick,
+    persistedSecurity.antiAi,
   ]);
 
   const onToggleSecurity = async (key: SecurityKey, next: boolean) => {
@@ -208,6 +214,14 @@ export default function SettingsPage() {
             checked={security.disableRightClick}
             disabled={!studio || savingSecurity.disableRightClick}
             onChange={(next) => onToggleSecurity('disableRightClick', next)}
+          />
+          <SecurityRow
+            id="security-antiai"
+            label="Proteção anti-IA"
+            description="Adiciona uma camada de ruído sobre as fotos e adensa a marca d'água, criando artefatos quando alguém tenta usar IA pra remover a proteção ou reconstruir o print. Também sinaliza que o conteúdo não deve ser usado para treinamento (noai/noimageai)."
+            checked={security.antiAi}
+            disabled={!studio || savingSecurity.antiAi}
+            onChange={(next) => onToggleSecurity('antiAi', next)}
           />
         </CardContent>
       </Card>

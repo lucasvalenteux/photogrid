@@ -65,7 +65,7 @@ export function ProtectedPhoto({
   className,
   fit = 'cover',
 }: ProtectedPhotoProps) {
-  const { dimPhotos, watermark, disableRightClick } = security;
+  const { dimPhotos, watermark, disableRightClick, antiAi } = security;
 
   // Block context menu + drag at the wrapper level. We intentionally
   // *don't* try to block keyboard shortcuts or DevTools — that's a
@@ -140,7 +140,11 @@ export function ProtectedPhoto({
         />
       ) : null}
 
-      {watermark ? <WatermarkOverlay studioName={studioName} /> : null}
+      {watermark ? (
+        <WatermarkOverlay studioName={studioName} dense={antiAi} />
+      ) : null}
+
+      {antiAi ? <AntiAiNoiseOverlay /> : null}
     </figure>
   );
 }
@@ -149,8 +153,34 @@ export function ProtectedPhoto({
  * Tiled diagonal watermark with the studio name. Implemented with a
  * single absolutely-positioned grid so the tile density adapts to the
  * container's natural aspect ratio without media queries.
+ *
+ * When `dense` is true (anti-AI mode), a second layer is stacked at an
+ * opposite angle. Two intersecting watermark grids are dramatically
+ * harder for generative inpainting models to remove cleanly — they
+ * tend to leave swirly artefacts where the text crosses itself.
  */
-function WatermarkOverlay({ studioName }: { studioName: string }) {
+function WatermarkOverlay({
+  studioName,
+  dense = false,
+}: {
+  studioName: string;
+  dense?: boolean;
+}) {
+  return (
+    <>
+      <WatermarkLayer studioName={studioName} angle={-18} />
+      {dense ? <WatermarkLayer studioName={studioName} angle={14} /> : null}
+    </>
+  );
+}
+
+function WatermarkLayer({
+  studioName,
+  angle,
+}: {
+  studioName: string;
+  angle: number;
+}) {
   // 5×7 grid is dense enough to survive moderate crops while still
   // leaving room for the photo to breathe. Each cell renders the same
   // text — the visual variety comes from rotation + the underlying
@@ -159,7 +189,8 @@ function WatermarkOverlay({ studioName }: { studioName: string }) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 -rotate-[18deg] scale-125"
+      className="pointer-events-none absolute inset-0 scale-125"
+      style={{ transform: `rotate(${angle}deg) scale(1.25)` }}
     >
       <div className="grid h-full w-full grid-cols-5 grid-rows-7 place-items-center gap-0">
         {cells.map((_, index) => (
@@ -174,3 +205,52 @@ function WatermarkOverlay({ studioName }: { studioName: string }) {
     </div>
   );
 }
+
+/**
+ * Procedural noise overlay used by the anti-AI mode.
+ *
+ * We use an inline SVG `<feTurbulence>` filter rendered into a tile —
+ * the browser computes the noise locally, so there's no network cost
+ * and no per-image processing on our side. The pattern is mostly black
+ * with low alpha, so on screen it reads as a very subtle film grain
+ * (similar to ISO 1600 grain).
+ *
+ * What this buys us against AI:
+ *   - Screenshots capture the noise pattern, since it's a real CSS
+ *     layer rendered above the photo.
+ *   - When the screenshot is fed into a generative model and asked to
+ *     "remove watermark and upscale", denoisers either preserve the
+ *     pattern (defeating the upscale) or smear it (visible artefacts
+ *     around faces and edges).
+ *   - The fractal turbulence frequency is intentionally close to the
+ *     frequency band that diffusion/super-res models hallucinate over,
+ *     making the artefacts worse the harder the model tries.
+ */
+function AntiAiNoiseOverlay() {
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-0 mix-blend-overlay"
+      style={{
+        opacity: 0.22,
+        backgroundImage: `url("${NOISE_DATA_URL}")`,
+        backgroundSize: '180px 180px',
+        backgroundRepeat: 'repeat',
+      }}
+    />
+  );
+}
+
+// 180×180 tile of fractal noise. Two octaves keep the pattern detailed
+// without making the data URL too long. The feColorMatrix collapses the
+// noise into a single alpha channel so it tints with the photo below
+// (via `mix-blend-overlay`) rather than washing it out.
+const NOISE_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'>
+  <filter id='n'>
+    <feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch' seed='7'/>
+    <feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 0'/>
+  </filter>
+  <rect width='100%' height='100%' filter='url(#n)'/>
+</svg>`;
+
+const NOISE_DATA_URL = `data:image/svg+xml;utf8,${encodeURIComponent(NOISE_SVG)}`;

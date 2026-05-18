@@ -119,7 +119,7 @@ export async function updateStudioFaceClustering(
  */
 export async function updateStudioSecurity(
   studioId: string,
-  key: 'dimPhotos' | 'watermark' | 'disableRightClick',
+  key: 'dimPhotos' | 'watermark' | 'disableRightClick' | 'antiAi',
   value: boolean,
 ): Promise<void> {
   await updateDoc(studioDoc(studioId), { [`security.${key}`]: value });

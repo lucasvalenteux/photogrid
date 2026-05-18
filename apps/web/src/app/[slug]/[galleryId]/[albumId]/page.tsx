@@ -30,8 +30,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!studio || !album || album.studioId !== studio.id) {
     return { title: 'Álbum não encontrado' };
   }
+  const security = effectiveStudioSecurity(studio);
   return {
     title: `${album.title} · ${studio.name}`,
+    other: security.antiAi ? { robots: 'noai, noimageai' } : {},
   };
 }
 

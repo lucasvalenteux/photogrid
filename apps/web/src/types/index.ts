@@ -34,6 +34,20 @@ export interface StudioSecuritySettings {
    * link that exposes the raw image URL.
    */
   disableRightClick?: boolean;
+  /**
+   * Anti-AI defenses for users who screenshot the gallery and try to
+   * "remove watermark / upscale" via generative AI. Stacks two layers:
+   *   1. A procedural noise overlay (SVG fractal turbulence) that
+   *      survives screenshots and produces visible artefacts when an
+   *      inpainting model tries to clean it up.
+   *   2. An extra horizontal watermark band on top of the diagonal one,
+   *      making the text harder to inpaint out cleanly.
+   *
+   * Also opts the storefront into `robots.txt` / `noai` / `noimageai`
+   * directives so well-behaved AI crawlers (GPTBot, CCBot, Claude-Web,
+   * Google-Extended, etc.) won't ingest the photos for training.
+   */
+  antiAi?: boolean;
 }
 
 export interface StudioDoc {
@@ -77,6 +91,7 @@ export function effectiveStudioSecurity(
     dimPhotos: s.dimPhotos === true,
     watermark: s.watermark === true,
     disableRightClick: s.disableRightClick === true,
+    antiAi: s.antiAi === true,
   };
 }
 

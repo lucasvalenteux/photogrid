@@ -24,6 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!studio) {
     return { title: 'Estúdio não encontrado' };
   }
+  const security = effectiveStudioSecurity(studio);
   return {
     title: studio.name,
     description: `Galerias de ${studio.name} no ${APP_NAME}.`,
@@ -32,6 +33,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: `Galerias de ${studio.name}.`,
       url: ROUTES.studio(studio.slug),
     },
+    // When anti-AI mode is on, opt out of all well-known AI training
+    // crawlers. These directives are honoured by OpenAI (GPTBot),
+    // Common Crawl (CCBot), Anthropic (Claude-Web/ClaudeBot), Google
+    // (Google-Extended), Meta (FacebookBot/Meta-ExternalAgent), and a
+    // few others. Bad actors will ignore them — this is the polite
+    // first line of defence that pairs with the watermark + noise
+    // overlays we already render on each photo.
+    other: security.antiAi
+      ? {
+          robots: 'noai, noimageai',
+        }
+      : {},
   };
 }
 

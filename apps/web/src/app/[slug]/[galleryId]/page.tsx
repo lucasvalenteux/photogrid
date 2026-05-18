@@ -30,9 +30,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!studio || !gallery || gallery.studioId !== studio.id) {
     return { title: 'Galeria não encontrada' };
   }
+  const security = effectiveStudioSecurity(studio);
   return {
     title: `${gallery.title} · ${studio.name}`,
     description: gallery.description ?? undefined,
+    other: security.antiAi ? { robots: 'noai, noimageai' } : {},
   };
 }
 
