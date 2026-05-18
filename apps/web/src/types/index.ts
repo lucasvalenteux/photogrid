@@ -148,6 +148,8 @@ export interface StudioDoc {
   pricing?: StudioPricingSettings;
   /** Background theme applied to the public storefront. */
   storefrontTheme?: StorefrontThemeId;
+  /** Internal admin flag: excluded from system-wide admin metrics. */
+  isTest?: boolean;
   createdAt: string;
 }
 

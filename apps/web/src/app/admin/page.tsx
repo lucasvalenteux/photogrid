@@ -9,6 +9,7 @@ import {
   Building2,
   Cloud,
   Database,
+  Edit3,
   Gauge,
   ImageIcon,
   LineChart,
@@ -17,24 +18,40 @@ import {
   Server,
   ShoppingBag,
   Sparkles,
+  TestTube2,
+  Trash2,
   Users,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { onSnapshot, type Unsubscribe } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 import { APP_DOMAIN, ROUTES } from '@photogrid/config';
 import {
   Badge,
   Button,
   Card,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Input,
+  Label,
   Logo,
   Skeleton,
+  Switch,
   cn,
 } from '@photogrid/ui';
 
 import { FullscreenLoader } from '@/components/common/fullscreen-loader';
 import { isSystemAdmin } from '@/lib/admin/access';
+import {
+  deleteStudioCascade,
+  updateAdminStudio,
+} from '@/lib/admin/studio-admin-service';
 import { signOut } from '@/lib/firebase/auth';
 import {
   albumsCollection,
@@ -147,6 +164,10 @@ function statusLabel(status: OrderDoc['status']): string {
   return 'Cancelado';
 }
 
+function isTestStudio(studio: Pick<StudioDoc, 'isTest'>): boolean {
+  return studio.isTest === true;
+}
+
 export default function AdminPage() {
   return (
     <AdminGate>
@@ -182,6 +203,8 @@ function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const { data, errors } = useAdminData();
+  const [editingStudio, setEditingStudio] = React.useState<StudioDoc | null>(null);
+  const [deletingStudio, setDeletingStudio] = React.useState<StudioRow | null>(null);
 
   const loading = Object.values(data).some((value) => value === null);
   const users = data.users ?? EMPTY_USERS;
@@ -191,18 +214,54 @@ function AdminDashboard() {
   const photos = data.photos ?? EMPTY_PHOTOS;
   const orders = data.orders ?? EMPTY_ORDERS;
   const clients = data.clients ?? EMPTY_CLIENTS;
+  const productionStudioIds = React.useMemo(
+    () =>
+      new Set(
+        studios
+          .filter((studio) => !isTestStudio(studio))
+          .map((studio) => studio.id),
+      ),
+    [studios],
+  );
+  const productionStudios = studios.filter((studio) =>
+    productionStudioIds.has(studio.id),
+  );
+  const productionUsers = users.filter(
+    (user) => !user.studioId || productionStudioIds.has(user.studioId),
+  );
+  const testStudioCount = studios.length - productionStudios.length;
+  const productionGalleries = galleries.filter((gallery) =>
+    productionStudioIds.has(gallery.studioId),
+  );
+  const productionAlbums = albums.filter((album) =>
+    productionStudioIds.has(album.studioId),
+  );
+  const productionPhotos = photos.filter((photo) =>
+    productionStudioIds.has(photo.studioId),
+  );
+  const productionOrders = orders.filter((order) =>
+    productionStudioIds.has(order.studioId),
+  );
+  const productionClients = clients.filter((client) =>
+    productionStudioIds.has(client.studioId),
+  );
 
-  const realOrders = orders.filter((order) => order.status !== 'cart');
-  const paidOrders = orders.filter((order) => order.status === 'paid');
-  const pendingOrders = orders.filter((order) => order.status === 'pending');
-  const cartOrders = orders.filter((order) => order.status === 'cart');
+  const realOrders = productionOrders.filter((order) => order.status !== 'cart');
+  const paidOrders = productionOrders.filter((order) => order.status === 'paid');
+  const pendingOrders = productionOrders.filter(
+    (order) => order.status === 'pending',
+  );
+  const cartOrders = productionOrders.filter((order) => order.status === 'cart');
   const revenueCents = paidOrders.reduce((sum, order) => sum + order.totalCents, 0);
   const pendingCents = pendingOrders.reduce(
     (sum, order) => sum + order.totalCents,
     0,
   );
   const cartCents = cartOrders.reduce((sum, order) => sum + order.totalCents, 0);
-  const storageBytes = photos.reduce((sum, photo) => sum + (photo.bytes ?? 0), 0);
+  const storageBytes = productionPhotos.reduce(
+    (sum, photo) => sum + (photo.bytes ?? 0),
+    0,
+  );
   const interested = paidOrders.length + pendingOrders.length + cartOrders.length;
   const conversionRate =
     interested > 0 ? (paidOrders.length / interested) * 100 : 0;
@@ -214,10 +273,10 @@ function AdminDashboard() {
 
   const recentUsers = React.useMemo(
     () =>
-      [...users]
+      [...productionUsers]
         .sort((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt))
         .slice(0, 6),
-    [users],
+    [productionUsers],
   );
 
   const recentOrders = React.useMemo(
@@ -232,13 +291,13 @@ function AdminDashboard() {
   );
 
   const firestoreDocs =
-    users.length +
-    studios.length +
-    galleries.length +
-    albums.length +
-    photos.length +
-    orders.length +
-    clients.length;
+    productionUsers.length +
+    productionStudios.length +
+    productionGalleries.length +
+    productionAlbums.length +
+    productionPhotos.length +
+    productionOrders.length +
+    productionClients.length;
 
   const handleSignOut = async () => {
     await signOut();
@@ -281,6 +340,14 @@ function AdminDashboard() {
                 operacional. Os dados do produto vêm do Firestore em tempo real;
                 integrações externas ficam destacadas até conectarmos APIs de uso.
               </p>
+                  {testStudioCount > 0 ? (
+                    <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
+                      <TestTube2 className="size-3.5" />
+                      {formatCount(testStudioCount)}{' '}
+                      {testStudioCount === 1 ? 'estúdio de teste fora' : 'estúdios de teste fora'}{' '}
+                      das métricas
+                    </p>
+                  ) : null}
             </div>
           </div>
           <Card className="overflow-hidden bg-ink text-white">
@@ -329,15 +396,15 @@ function AdminDashboard() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             title="Usuários"
-            value={loading ? null : formatCount(users.length)}
-            detail={`${formatCount(studios.length)} estúdios criados`}
+            value={loading ? null : formatCount(productionUsers.length)}
+            detail={`${formatCount(productionStudios.length)} estúdios em produção`}
             icon={Users}
             tone="brand"
           />
           <MetricCard
             title="Estúdios"
-            value={loading ? null : formatCount(studios.length)}
-            detail={`${formatCount(galleries.length)} galerias totais`}
+            value={loading ? null : formatCount(productionStudios.length)}
+            detail={`${formatCount(testStudioCount)} teste · ${formatCount(productionGalleries.length)} galerias`}
             icon={Building2}
             tone="ink"
           />
@@ -358,13 +425,18 @@ function AdminDashboard() {
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1.45fr_0.55fr]">
-          <StudiosTable loading={loading} rows={studioRows} />
+          <StudiosTable
+            loading={loading}
+            rows={studioRows}
+            onEdit={(studio) => setEditingStudio(studio)}
+            onDelete={(row) => setDeletingStudio(row)}
+          />
           <OperationsCard
             loading={loading}
             docs={firestoreDocs}
             storageBytes={storageBytes}
-            orders={orders}
-            photos={photos}
+            orders={productionOrders}
+            photos={productionPhotos}
           />
         </section>
 
@@ -373,6 +445,20 @@ function AdminDashboard() {
           <RecentOrdersCard loading={loading} orders={recentOrders} studios={studios} />
         </section>
       </div>
+      <EditStudioDialog
+        studio={editingStudio}
+        open={Boolean(editingStudio)}
+        onOpenChange={(open) => {
+          if (!open) setEditingStudio(null);
+        }}
+      />
+      <DeleteStudioDialog
+        row={deletingStudio}
+        open={Boolean(deletingStudio)}
+        onOpenChange={(open) => {
+          if (!open) setDeletingStudio(null);
+        }}
+      />
     </main>
   );
 }
@@ -536,7 +622,17 @@ function MetricCard({
   );
 }
 
-function StudiosTable({ loading, rows }: { loading: boolean; rows: StudioRow[] }) {
+function StudiosTable({
+  loading,
+  rows,
+  onEdit,
+  onDelete,
+}: {
+  loading: boolean;
+  rows: StudioRow[];
+  onEdit: (studio: StudioDoc) => void;
+  onDelete: (row: StudioRow) => void;
+}) {
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-5">
@@ -558,7 +654,7 @@ function StudiosTable({ loading, rows }: { loading: boolean; rows: StudioRow[] }
         <EmptyState text="Nenhum estúdio criado ainda." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-left text-sm">
+          <table className="w-full min-w-[1040px] text-left text-sm">
             <thead className="bg-muted/60 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-5 py-3 font-medium">Estúdio</th>
@@ -567,6 +663,7 @@ function StudiosTable({ loading, rows }: { loading: boolean; rows: StudioRow[] }
                 <th className="px-5 py-3 font-medium">Consumo</th>
                 <th className="px-5 py-3 font-medium">Plano</th>
                 <th className="px-5 py-3 font-medium">Loja</th>
+                <th className="px-5 py-3 font-medium">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -597,6 +694,15 @@ function StudiosTable({ loading, rows }: { loading: boolean; rows: StudioRow[] }
                         <p className="mt-1 text-xs text-muted-foreground">
                           Criado em {dateLabel(row.studio.createdAt)}
                         </p>
+                        {isTestStudio(row.studio) ? (
+                          <Badge
+                            variant="outline"
+                            className="mt-2 border-amber-200 bg-amber-50 text-amber-700"
+                          >
+                            <TestTube2 className="size-3" />
+                            Teste
+                          </Badge>
+                        ) : null}
                       </div>
                     </div>
                   </td>
@@ -642,6 +748,29 @@ function StudiosTable({ loading, rows }: { loading: boolean; rows: StudioRow[] }
                       <ArrowRight className="size-3.5" />
                     </a>
                   </td>
+                  <td className="px-5 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onEdit(row.studio)}
+                      >
+                        <Edit3 className="size-3.5" />
+                        Editar
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-red-200 text-red-700 hover:bg-red-50"
+                        onClick={() => onDelete(row)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        Excluir
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -649,6 +778,206 @@ function StudiosTable({ loading, rows }: { loading: boolean; rows: StudioRow[] }
         </div>
       )}
     </Card>
+  );
+}
+
+function EditStudioDialog({
+  studio,
+  open,
+  onOpenChange,
+}: {
+  studio: StudioDoc | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [name, setName] = React.useState('');
+  const [isTest, setIsTest] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!studio) return;
+    setName(studio.name);
+    setIsTest(isTestStudio(studio));
+  }, [studio]);
+
+  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!studio || saving) return;
+
+    setSaving(true);
+    try {
+      await updateAdminStudio({
+        studioId: studio.id,
+        name,
+        isTest,
+      });
+      toast.success('Estúdio atualizado.');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('[admin] update studio error', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Não foi possível atualizar o estúdio.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar estúdio</DialogTitle>
+          <DialogDescription>
+            Ajuste o nome administrativo e marque contas usadas apenas para teste.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="admin-studio-name">Nome do estúdio</Label>
+            <Input
+              id="admin-studio-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              disabled={saving}
+              required
+              minLength={2}
+            />
+            <p className="text-xs text-muted-foreground">
+              O endereço público não muda automaticamente.
+            </p>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/40 p-4">
+            <div>
+              <Label className="text-sm">Estúdio de teste</Label>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Remove esta conta das métricas agregadas do painel admin, mas
+                mantém ela visível na tabela de estúdios.
+              </p>
+            </div>
+            <Switch
+              checked={isTest}
+              onCheckedChange={setIsTest}
+              disabled={saving}
+              label="Marcar como estúdio de teste"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" loading={saving}>
+              Salvar alterações
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function DeleteStudioDialog({
+  row,
+  open,
+  onOpenChange,
+}: {
+  row: StudioRow | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [confirmation, setConfirmation] = React.useState('');
+  const [deleting, setDeleting] = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) setConfirmation('');
+  }, [open]);
+
+  if (!row) return null;
+
+  const expected = row.studio.slug;
+  const canDelete = confirmation.trim() === expected;
+
+  const onDelete = async () => {
+    if (!canDelete || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteStudioCascade({
+        studioId: row.studio.id,
+        slug: row.studio.slug,
+        ownerId: row.studio.ownerId,
+        logoStoragePath: row.studio.logoStoragePath,
+      });
+      toast.success('Estúdio excluído.');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('[admin] delete studio error', error);
+      toast.error('Não foi possível excluir o estúdio.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Excluir estúdio permanentemente</DialogTitle>
+          <DialogDescription>
+            Esta ação apaga o estúdio, galerias, álbuns, fotos, pedidos,
+            clientes, sugestões de faces, reserva de slug e desvincula usuários.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <p className="font-semibold">{row.studio.name}</p>
+          <p className="mt-1">
+            {formatCount(row.galleries)} galerias · {formatCount(row.albums)} álbuns ·{' '}
+            {formatCount(row.photos)} fotos · {formatCents(row.revenueCents)} em vendas
+            pagas
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="delete-studio-confirm">
+            Digite <span className="font-mono">{expected}</span> para confirmar
+          </Label>
+          <Input
+            id="delete-studio-confirm"
+            value={confirmation}
+            onChange={(event) => setConfirmation(event.target.value)}
+            disabled={deleting}
+            autoComplete="off"
+          />
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={deleting}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            loading={deleting}
+            disabled={!canDelete || deleting}
+            onClick={onDelete}
+          >
+            Excluir tudo
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -965,9 +1294,15 @@ function buildStudioRows({
       };
     })
     .sort(
-      (a, b) =>
-        b.revenueCents + b.pendingCents + b.storageBytes / 1000 -
-        (a.revenueCents + a.pendingCents + a.storageBytes / 1000),
+      (a, b) => {
+        if (isTestStudio(a.studio) !== isTestStudio(b.studio)) {
+          return isTestStudio(a.studio) ? 1 : -1;
+        }
+        return (
+          b.revenueCents + b.pendingCents + b.storageBytes / 1000 -
+          (a.revenueCents + a.pendingCents + a.storageBytes / 1000)
+        );
+      },
     );
 }
 

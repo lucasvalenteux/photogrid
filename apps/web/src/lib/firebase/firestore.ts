@@ -36,6 +36,8 @@ export const albumsCollection = () => typedCollection<AlbumDoc>(FIRESTORE_COLLEC
 export const photosCollection = () => typedCollection<PhotoDoc>(FIRESTORE_COLLECTIONS.photos);
 export const faceClustersCollection = () =>
   typedCollection<FaceClusterDoc>(FIRESTORE_COLLECTIONS.faceClusters);
+export const photoFacesCollection = () =>
+  typedCollection<DocumentData>(FIRESTORE_COLLECTIONS.photoFaces);
 export const ordersCollection = () =>
   typedCollection<OrderDoc>(FIRESTORE_COLLECTIONS.orders);
 export const clientsCollection = () =>
@@ -51,5 +53,7 @@ export const albumDoc = (id: string) => typedDoc<AlbumDoc>(FIRESTORE_COLLECTIONS
 export const photoDoc = (id: string) => typedDoc<PhotoDoc>(FIRESTORE_COLLECTIONS.photos, id);
 export const faceClusterDoc = (id: string) =>
   typedDoc<FaceClusterDoc>(FIRESTORE_COLLECTIONS.faceClusters, id);
+export const photoFaceDoc = (id: string) =>
+  typedDoc<DocumentData>(FIRESTORE_COLLECTIONS.photoFaces, id);
 export const orderDoc = (id: string) => typedDoc<OrderDoc>(FIRESTORE_COLLECTIONS.orders, id);
 export const clientDoc = (id: string) => typedDoc<ClientDoc>(FIRESTORE_COLLECTIONS.clients, id);
