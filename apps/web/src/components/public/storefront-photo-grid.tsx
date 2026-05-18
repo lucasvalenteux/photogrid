@@ -8,7 +8,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   cn,
@@ -226,7 +225,7 @@ function PublicPhotoDetailsDialog({
               />
             </div>
 
-            <DialogFooter className="gap-2 border-t border-border pt-4">
+            <div className="grid gap-2 border-t border-border pt-4">
               {showCart ? (
                 <PhotoCartButton
                   photo={photo}
@@ -234,17 +233,18 @@ function PublicPhotoDetailsDialog({
                   gallery={gallery}
                   pricePerPhotoCents={pricePerPhotoCents}
                   size="lg"
-                  className="w-full sm:w-auto"
+                  className="w-full"
                 />
               ) : null}
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
+                className="w-full"
               >
                 Fechar
               </Button>
-            </DialogFooter>
+            </div>
           </aside>
         </div>
       </DialogContent>

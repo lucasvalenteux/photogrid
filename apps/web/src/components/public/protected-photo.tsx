@@ -157,28 +157,11 @@ export function ProtectedPhoto({
 }
 
 /**
- * Tiled diagonal watermark with the studio name (and, when provided,
- * the studio's photogrid URL stacked underneath on a second line).
- *
- * Earlier versions used a CSS grid of `<span>` elements. Cells were
- * narrower than the rendered text, so anything past the first few
- * characters of the studio name was clipped by the cell boundary
- * (especially after rotation). The fix is to stop tiling at the DOM
- * level and instead render a single SVG tile that contains the *full*
- * watermark, then let CSS `background-repeat` lay it out.
- *
- * Properties of this approach:
- *   - Each repetition is guaranteed to show the complete name (and URL,
- *     when present). Tile width scales with the longer of the two
- *     strings so neither line ever gets truncated.
- *   - When `studioUrl` is provided, the tile contains two text rows:
- *     a bigger "© NAME" row on top and a smaller, lower-case URL row
- *     below. As the background repeats, the two rows alternate
- *     vertically across the whole image, which doubles the amount of
- *     information a screenshot has to keep around.
- *   - The `paint-order='stroke'` trick draws a soft dark outline under
- *     the white text so it's legible on both bright skin tones and
- *     dark fabric — no `text-shadow` needed.
+ * Dense tiled diagonal watermark with the studio name and storefront URL.
+ * The tile keeps the full text readable while repeating often enough that
+ * screenshots retain multiple protected bands across faces, clothes, and
+ * backgrounds. Each line gets a translucent dark pill plus a black stroke,
+ * which gives the smaller text contrast on both light and dark photos.
  */
 function WatermarkOverlay({
   studioName,
@@ -190,39 +173,41 @@ function WatermarkOverlay({
   const nameLine = `© ${studioName}`.toUpperCase();
   const urlLine = studioUrl ?? '';
 
-  // Width grows with whichever line is longer (the URL is usually the
-  // longer one). The +4 leaves comfortable margin so adjacent tiles
-  // don't butt up against each other once the background repeats.
+  // Width grows with whichever line is longer, but the font is smaller
+  // than previous versions so the tile can repeat more often.
   const widthDriver = Math.max(nameLine.length, urlLine.length);
-  const tileWidth = Math.max(340, (widthDriver + 4) * 12);
+  const tileWidth = Math.max(260, (widthDriver + 5) * 8.8);
+  const tileHeight = urlLine ? 62 : 34;
+  const pillWidth = tileWidth - 18;
 
-  // 50px per logical row. With a URL line, that means the full tile is
-  // 100px tall and the two text rows alternate vertically across the
-  // photo — twice the bands compared to the name-only layout.
-  const tileHeight = urlLine ? 100 : 50;
-
-  const nameText = `<text x='50%' y='${urlLine ? 25 : 25}' text-anchor='middle' dominant-baseline='middle'
+  const namePill = `<rect x='9' y='6' width='${pillWidth}' height='18' rx='9'
+        fill='black' fill-opacity='0.24'/>`;
+  const nameText = `<text x='50%' y='16' text-anchor='middle' dominant-baseline='middle'
         font-family='system-ui, -apple-system, sans-serif'
-        font-size='14' font-weight='600' letter-spacing='2.5'
-        fill='white' fill-opacity='0.7'
-        stroke='black' stroke-opacity='0.55' stroke-width='0.6'
+        font-size='10.5' font-weight='700' letter-spacing='1.7'
+        fill='white' fill-opacity='0.86'
+        stroke='black' stroke-opacity='0.82' stroke-width='1'
         paint-order='stroke'>${escapeXml(nameLine)}</text>`;
 
+  const urlPill = urlLine
+    ? `<rect x='9' y='34' width='${pillWidth}' height='16' rx='8'
+        fill='black' fill-opacity='0.2'/>`
+    : '';
   const urlText = urlLine
-    ? `<text x='50%' y='75' text-anchor='middle' dominant-baseline='middle'
+    ? `<text x='50%' y='42' text-anchor='middle' dominant-baseline='middle'
         font-family='system-ui, -apple-system, sans-serif'
-        font-size='11' font-weight='500' letter-spacing='1.2'
-        fill='white' fill-opacity='0.6'
-        stroke='black' stroke-opacity='0.5' stroke-width='0.5'
+        font-size='8.5' font-weight='600' letter-spacing='0.9'
+        fill='white' fill-opacity='0.82'
+        stroke='black' stroke-opacity='0.78' stroke-width='0.8'
         paint-order='stroke'>${escapeXml(urlLine)}</text>`
     : '';
 
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tileWidth}' height='${tileHeight}'>${nameText}${urlText}</svg>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tileWidth}' height='${tileHeight}'>${namePill}${nameText}${urlPill}${urlText}</svg>`;
   const backgroundImage = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 -rotate-[20deg] scale-150"
+      className="pointer-events-none absolute inset-0 -rotate-[18deg] scale-[1.65]"
       style={{
         backgroundImage,
         backgroundRepeat: 'repeat',
