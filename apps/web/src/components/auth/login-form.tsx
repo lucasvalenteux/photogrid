@@ -19,6 +19,7 @@ import {
   lookupEmailExists,
   type EmailLookupResult,
 } from '@/lib/services/auth-service';
+import { isSystemAdmin } from '@/lib/admin/access';
 
 const MIN_PASSWORD_LENGTH = 8;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -90,9 +91,11 @@ export function LoginForm() {
 
   const loading = submitting || redirecting;
 
-  const navigateToDashboard = React.useCallback(() => {
+  const navigateAfterAuth = React.useCallback((authenticatedEmail: string) => {
     setRedirecting(true);
-    router.replace(ROUTES.dashboard);
+    router.replace(
+      isSystemAdmin(authenticatedEmail) ? ROUTES.admin : ROUTES.dashboard,
+    );
   }, [router]);
 
   const goToPasswordStep = async (trimmedEmail: string) => {
@@ -138,7 +141,7 @@ export function LoginForm() {
       if (outcome === 'created') {
         toast.success('Conta criada! Vamos configurar seu estúdio.');
       }
-      navigateToDashboard();
+      navigateAfterAuth(email);
     } catch (error) {
       const authError = toAuthError(error);
       toast.error(authError.message);

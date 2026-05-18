@@ -8,6 +8,7 @@ export const ROUTES = {
   /** Single unified entry point — handles both sign-up and sign-in. */
   login: '/login',
   onboarding: '/onboarding',
+  admin: '/admin',
   dashboard: '/dashboard',
   galleries: '/dashboard/galleries',
   gallery: (galleryId: string) => `/dashboard/galleries/${galleryId}`,

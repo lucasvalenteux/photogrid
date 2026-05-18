@@ -25,6 +25,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isSystemAdmin() {
+      return isSignedIn()
+        && request.auth.token.email in ['luckvalente@gmail.com'];
+    }
+
     function ownsStudio(studioId) {
       return isSignedIn()
         && exists(/databases/$(database)/documents/studios/$(studioId))
@@ -39,7 +44,7 @@ service cloud.firestore {
 
     // ---------- USERS ----------
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isSystemAdmin();
       allow create: if isOwner(userId)
         && request.resource.data.id == userId
         && request.resource.data.email is string;
@@ -128,7 +133,7 @@ service cloud.firestore {
     // to render the dashboard suggestions; the public never sees them
     // because the storefront only reads /albums.
     match /faceClusters/{clusterId} {
-      allow read: if isSignedIn() && ownsStudio(resource.data.studioId);
+      allow read: if isSystemAdmin() || (isSignedIn() && ownsStudio(resource.data.studioId));
       // Block all client writes — only the trusted backend may mutate.
       allow create, update, delete: if false;
     }
@@ -137,7 +142,7 @@ service cloud.firestore {
     // Same rationale: written by the trusted backend; only the owner can
     // observe what was detected (useful for debugging, not surfaced in UI).
     match /photoFaces/{photoId} {
-      allow read: if isSignedIn() && ownsStudio(resource.data.studioId);
+      allow read: if isSystemAdmin() || (isSignedIn() && ownsStudio(resource.data.studioId));
       allow create, update, delete: if false;
     }
 
@@ -188,7 +193,7 @@ service cloud.firestore {
 
     // ---------- CLIENTS ----------
     match /clients/{clientId} {
-      allow read: if isSignedIn() && ownsStudio(resource.data.studioId);
+      allow read: if isSystemAdmin() || (isSignedIn() && ownsStudio(resource.data.studioId));
       allow create: if isSignedIn()
         && ownsStudio(request.resource.data.studioId)
         && request.resource.data.name is string
