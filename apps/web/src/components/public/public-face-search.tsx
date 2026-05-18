@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Camera, Loader2, Search, Upload } from 'lucide-react';
+import { Loader2, Search, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ROUTES } from '@photogrid/config';
@@ -45,6 +45,7 @@ export function PublicFaceSearch({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [searching, setSearching] = React.useState(false);
   const [matches, setMatches] = React.useState<PublicFaceSearchMatch[] | null>(null);
+  const [searchError, setSearchError] = React.useState<string | null>(null);
 
   const photosById = React.useMemo(
     () => new Map(photos.map((photo) => [photo.id, photo])),
@@ -84,6 +85,7 @@ export function PublicFaceSearch({
 
     setSearching(true);
     setMatches(null);
+    setSearchError(null);
     try {
       const result = await searchPublicFaces({ studioId: studio.id, file });
       setMatches(result);
@@ -92,7 +94,12 @@ export function PublicFaceSearch({
       }
     } catch (error) {
       console.error('[public-face-search] failed', error);
-      toast.error('Não foi possível buscar agora.');
+      const message =
+        error instanceof Error && error.message.includes('404')
+          ? 'Busca em atualização. Tente novamente em instantes.'
+          : 'Não foi possível buscar agora.';
+      setSearchError(message);
+      toast.error(message);
     } finally {
       setSearching(false);
       if (inputRef.current) inputRef.current.value = '';
@@ -100,93 +107,75 @@ export function PublicFaceSearch({
   };
 
   return (
-    <Card className="overflow-hidden">
-      <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r">
-          <div className="flex items-start gap-3">
-            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
-              <Search className="size-5" />
-            </span>
-            <div>
-              <h2 className="text-base font-semibold text-ink">
-                Encontre suas fotos pelo rosto
-              </h2>
-              <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                Envie uma foto nítida do rosto da pessoa. Vamos procurar fotos e
-                álbuns públicos deste estúdio com aparência compatível.
-              </p>
-            </div>
+    <Card className="w-full overflow-hidden p-3 shadow-xs lg:w-[360px]">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
+            <Search className="size-4" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold text-ink">
+              Buscar pelo rosto
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Envie uma foto para encontrar imagens.
+            </p>
           </div>
-
-          <div className="mt-5">
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => void onFile(event.target.files?.[0])}
-            />
-            <Button
-              type="button"
-              size="lg"
-              className="w-full sm:w-auto"
-              disabled={searching}
-              onClick={() => inputRef.current?.click()}
-            >
-              {searching ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Upload className="size-4" />
-              )}
-              {searching ? 'Buscando...' : 'Subir foto para buscar'}
-            </Button>
-          </div>
-
-          <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            A imagem enviada é usada apenas para a busca em tempo real. Ela não
-            é publicada na loja.
-          </p>
         </div>
 
-        <div className="p-5 sm:p-6">
-          {matches === null ? (
-            <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-10 text-center">
-              <Camera className="size-8 text-muted-foreground" />
-              <p className="mt-3 text-sm font-medium text-foreground">
-                Os resultados aparecem aqui
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Fotos e álbuns compatíveis serão listados depois do envio.
-              </p>
-            </div>
-          ) : matchedPhotos.length === 0 && matchedAlbums.length === 0 ? (
-            <div className="flex min-h-48 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/40 px-6 py-10 text-center">
-              <Search className="size-8 text-muted-foreground" />
-              <p className="mt-3 text-sm font-medium text-foreground">
-                Nenhum resultado encontrado
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Tente uma foto frontal, bem iluminada e com apenas uma pessoa.
-              </p>
-            </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => void onFile(event.target.files?.[0])}
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="shrink-0"
+          disabled={searching}
+          onClick={() => inputRef.current?.click()}
+        >
+          {searching ? (
+            <Loader2 className="size-4 animate-spin" />
           ) : (
-            <div className="space-y-6">
+            <Upload className="size-4" />
+          )}
+          {searching ? 'Buscando' : 'Enviar'}
+        </Button>
+      </div>
+
+      {searchError ? (
+        <p className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {searchError}
+        </p>
+      ) : null}
+
+      {matches !== null ? (
+        <div className="mt-3 border-t border-border pt-3">
+          {matchedPhotos.length === 0 && matchedAlbums.length === 0 ? (
+            <p className="rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              Nenhum resultado encontrado.
+            </p>
+          ) : (
+            <div className="space-y-4">
               {matchedAlbums.length > 0 ? (
-                <section className="space-y-3">
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Álbuns encontrados
+                <section className="space-y-2">
+                  <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Álbuns
                   </h3>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {matchedAlbums.slice(0, 6).map((album) => (
+                  <div className="space-y-2">
+                    {matchedAlbums.slice(0, 3).map((album) => (
                       <Link
                         key={album.id}
                         href={ROUTES.publicAlbum(studio.slug, album.galleryId, album.id)}
-                        className="rounded-xl border border-border bg-background p-3 transition-colors hover:bg-muted/50"
+                        className="block rounded-xl border border-border bg-background px-3 py-2 transition-colors hover:bg-muted/50"
                       >
-                        <p className="text-sm font-medium text-foreground">
+                        <p className="truncate text-sm font-medium text-foreground">
                           {album.title}
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {album.photoIds?.length ?? 0} fotos
                         </p>
                       </Link>
@@ -196,12 +185,12 @@ export function PublicFaceSearch({
               ) : null}
 
               {matchedPhotos.length > 0 ? (
-                <section className="space-y-3">
-                  <h3 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                    Fotos encontradas
+                <section className="space-y-2">
+                  <h3 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                    Fotos
                   </h3>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    {matchedPhotos.slice(0, 12).map((photo) => {
+                  <div className="grid grid-cols-3 gap-2">
+                    {matchedPhotos.slice(0, 6).map((photo) => {
                       const gallery = galleriesById.get(photo.galleryId);
                       return (
                         <Link
@@ -211,7 +200,7 @@ export function PublicFaceSearch({
                               ? ROUTES.publicGallery(studio.slug, gallery.id)
                               : ROUTES.studio(studio.slug)
                           }
-                          className="group space-y-2"
+                          aria-label={gallery?.title ?? 'Abrir galeria'}
                         >
                           <ProtectedPhoto
                             src={photo.thumbnailUrl ?? photo.imageUrl}
@@ -221,10 +210,8 @@ export function PublicFaceSearch({
                             studioLogoUrl={studio.logoUrl}
                             security={security}
                             interactive="none"
+                            aspect="aspect-square"
                           />
-                          <p className="truncate text-xs text-muted-foreground">
-                            {gallery?.title ?? 'Galeria'}
-                          </p>
                         </Link>
                       );
                     })}
@@ -234,7 +221,7 @@ export function PublicFaceSearch({
             </div>
           )}
         </div>
-      </div>
+      ) : null}
     </Card>
   );
 }

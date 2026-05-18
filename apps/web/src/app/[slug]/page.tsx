@@ -71,17 +71,17 @@ export default async function PublicStudioPage({ params }: Props) {
   return (
     <StorefrontShell studio={studio}>
       <section className="container-app py-12 sm:py-16">
-        <header className="mb-10 max-w-2xl">
-          <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-            {studio.name}
-          </h1>
-          <p className="mt-3 text-pretty text-sm text-muted-foreground">
-            Escolha uma galeria para ver os álbuns publicados.
-          </p>
-        </header>
+        <header className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-2xl">
+            <h1 className="text-balance text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+              {studio.name}
+            </h1>
+            <p className="mt-3 text-pretty text-sm text-muted-foreground">
+              Escolha uma galeria para ver os álbuns publicados.
+            </p>
+          </div>
 
-        {publicFaceSearchEnabled && faceSearchIndex ? (
-          <div className="mb-10">
+          {publicFaceSearchEnabled && faceSearchIndex ? (
             <PublicFaceSearch
               studio={{
                 id: studio.id,
@@ -95,8 +95,8 @@ export default async function PublicStudioPage({ params }: Props) {
               albums={faceSearchIndex.albums}
               galleries={faceSearchIndex.galleries}
             />
-          </div>
-        ) : null}
+          ) : null}
+        </header>
 
         {galleries.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center text-sm text-muted-foreground">

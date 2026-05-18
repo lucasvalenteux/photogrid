@@ -8,6 +8,8 @@ based pipeline:
   - ``GET    /galleries/{id}/clusters``       list cluster suggestions
   - ``POST   /clusters/{id}/promote``         turn a cluster into an album
   - ``POST   /clusters/{id}/dismiss``         hide a cluster from suggestions
+  - ``POST   /public/studios/{id}/search``    search public storefront photos
+                                              from a visitor face upload
 """
 
 from __future__ import annotations
