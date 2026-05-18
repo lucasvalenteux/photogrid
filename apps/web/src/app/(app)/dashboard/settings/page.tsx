@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { APP_DOMAIN } from '@photogrid/config';
 import {
+  Button,
   Card,
   CardContent,
   CardDescription,
@@ -15,9 +16,12 @@ import {
   Switch,
 } from '@photogrid/ui';
 
+import { PaymentSettingsCard } from '@/components/dashboard/payment-settings-card';
+import { StudioLogoUploader } from '@/components/dashboard/studio-logo-uploader';
 import { useAuth } from '@/lib/hooks/use-auth';
 import {
   updateStudioFaceClustering,
+  updateStudioName,
   updateStudioSecurity,
 } from '@/lib/services/studio-service';
 import {
@@ -104,6 +108,33 @@ export default function SettingsPage() {
     }
   };
 
+  // Editable studio name. We keep the input controlled and only flip the
+  // Save button to enabled when the value actually changed — avoids
+  // spurious writes when the user clicks in and out without typing.
+  const [nameDraft, setNameDraft] = React.useState(studio?.name ?? '');
+  const [savingName, setSavingName] = React.useState(false);
+  React.useEffect(() => {
+    setNameDraft(studio?.name ?? '');
+  }, [studio?.name]);
+  const nameDirty =
+    Boolean(studio) && nameDraft.trim().length >= 2 && nameDraft.trim() !== studio?.name;
+
+  const onSaveName = async () => {
+    if (!studio || savingName || !nameDirty) return;
+    setSavingName(true);
+    try {
+      await updateStudioName(studio.id, nameDraft);
+      toast.success('Nome atualizado.');
+    } catch (error) {
+      console.error('[settings] failed to update studio name', error);
+      const message =
+        error instanceof Error ? error.message : 'Não foi possível salvar.';
+      toast.error(message);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8">
       <header>
@@ -117,14 +148,37 @@ export default function SettingsPage() {
           <CardTitle>Estúdio</CardTitle>
           <CardDescription>Informações públicas do seu estúdio.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
+          {studio ? <StudioLogoUploader studio={studio} /> : null}
+
           <div className="space-y-1.5">
             <Label htmlFor="studio-name">Nome</Label>
-            <Input id="studio-name" defaultValue={studio?.name ?? ''} disabled />
+            <div className="flex items-center gap-2">
+              <Input
+                id="studio-name"
+                value={nameDraft}
+                onChange={(event) => setNameDraft(event.target.value)}
+                disabled={!studio || savingName}
+                placeholder="Nome do estúdio"
+              />
+              <Button
+                size="sm"
+                onClick={onSaveName}
+                disabled={!nameDirty}
+                loading={savingName}
+              >
+                Salvar
+              </Button>
+            </div>
           </div>
+
           <div className="space-y-1.5">
             <Label htmlFor="studio-slug">Endereço público</Label>
-            <Input id="studio-slug" defaultValue={`${APP_DOMAIN}/${studio?.slug ?? ''}`} disabled />
+            <Input
+              id="studio-slug"
+              defaultValue={`${APP_DOMAIN}/${studio?.slug ?? ''}`}
+              disabled
+            />
           </div>
         </CardContent>
       </Card>
@@ -141,6 +195,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {studio ? <PaymentSettingsCard studio={studio} /> : null}
 
       <Card>
         <CardHeader>

@@ -9,6 +9,7 @@ export * from './components/dropdown-menu';
 export * from './components/input';
 export * from './components/label';
 export * from './components/logo';
+export * from './components/radio-group';
 export * from './components/separator';
 export * from './components/skeleton';
 export * from './components/switch';
