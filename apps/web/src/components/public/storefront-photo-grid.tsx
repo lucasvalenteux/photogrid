@@ -18,6 +18,9 @@ import type { PhotoDoc, StudioSecuritySettings } from '@/types';
 
 import { AddToCartButton } from './add-to-cart-button';
 
+const PHOTO_PREVIEW_PLACEHOLDER =
+  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640"%3E%3Crect width="640" height="640" fill="%23f1f1ef"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2389857c" font-family="Arial, sans-serif" font-size="24"%3EPrévia indisponível%3C/text%3E%3C/svg%3E';
+
 interface StorefrontPhotoGridProps {
   photos: PhotoDoc[];
   studio: {
@@ -68,8 +71,7 @@ export function StorefrontPhotoGrid({
           <div key={photo.id} className="space-y-2">
             <div className="relative">
               <ProtectedPhoto
-                src={photo.thumbnailUrl ?? photo.imageUrl}
-                fullSrc={photo.imageUrl}
+                src={publicPhotoPreviewUrl(photo)}
                 alt={photo.fileName}
                 studioName={studio.name}
                 studioUrl={studioUrl}
@@ -149,7 +151,7 @@ function PhotoCartButton({
           type: 'photo',
           itemId: photo.id,
           title: photo.fileName || 'Foto',
-          thumbnailUrl: photo.thumbnailUrl ?? photo.imageUrl,
+          thumbnailUrl: photo.thumbnailUrl ?? null,
           priceCents: pricePerPhotoCents,
           photoCount: null,
         },
@@ -187,7 +189,7 @@ function PublicPhotoDetailsDialog({
         <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="flex min-h-[320px] items-center justify-center bg-ink p-3 sm:p-4">
             <ProtectedPhoto
-              src={photo.imageUrl}
+              src={publicPhotoPreviewUrl(photo)}
               alt="Foto selecionada"
               studioName={studio.name}
               studioUrl={studioUrl}
@@ -253,6 +255,10 @@ function PublicPhotoDetailsDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function publicPhotoPreviewUrl(photo: PhotoDoc): string {
+  return photo.thumbnailUrl ?? PHOTO_PREVIEW_PLACEHOLDER;
 }
 
 function InfoRow({

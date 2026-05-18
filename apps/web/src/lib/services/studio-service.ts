@@ -137,6 +137,7 @@ export async function updateStudioSecurity(
     | 'watermark'
     | 'disableRightClick'
     | 'screenshotShield'
+    | 'protectCovers'
     | 'antiAi',
   value: boolean,
 ): Promise<void> {

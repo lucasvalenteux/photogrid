@@ -14,7 +14,11 @@ import {
   fetchPublicGalleryWithAccess,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
-import { effectiveStudioSecurity, resolveGalleryPrices } from '@/types';
+import {
+  effectiveStudioSecurity,
+  resolveGalleryPrices,
+  securityForStorefrontCovers,
+} from '@/types';
 
 interface Props {
   params: Promise<{ slug: string; galleryId: string }>;
@@ -60,6 +64,7 @@ export default async function PublicGalleryPage({ params }: Props) {
       : Promise.resolve([]),
   ]);
   const security = effectiveStudioSecurity(studio);
+  const coverSecurity = securityForStorefrontCovers(security);
   const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
   const prices = resolveGalleryPrices(gallery, studio);
 
@@ -142,7 +147,7 @@ export default async function PublicGalleryPage({ params }: Props) {
                     logoUrl: studio.logoUrl,
                   }}
                   studioUrl={studioUrl}
-                  security={security}
+                  security={coverSecurity}
                   gallery={{ id: gallery.id, title: gallery.title }}
                   pricePerAlbumCents={prices.pricePerAlbumCents}
                 />

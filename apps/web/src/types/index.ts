@@ -48,6 +48,12 @@ export interface StudioSecuritySettings {
    */
   screenshotShield?: boolean;
   /**
+   * When true, the public storefront applies the same visibility protections
+   * to cover images (gallery/album cards). Defaults to false so covers stay
+   * clean while browsing unless the studio opts in.
+   */
+  protectCovers?: boolean;
+  /**
    * Anti-AI defenses for users who screenshot the gallery and try to
    * "remove watermark / upscale" via generative AI.
    *
@@ -203,8 +209,24 @@ export function effectiveStudioSecurity(
     watermark: s.watermark === true,
     disableRightClick: s.disableRightClick === true,
     screenshotShield: s.screenshotShield === true,
+    protectCovers: s.protectCovers === true,
     antiAi: s.antiAi === true,
   };
+}
+
+export const UNPROTECTED_STUDIO_SECURITY: Required<StudioSecuritySettings> = {
+  dimPhotos: false,
+  watermark: false,
+  disableRightClick: false,
+  screenshotShield: false,
+  protectCovers: false,
+  antiAi: false,
+};
+
+export function securityForStorefrontCovers(
+  security: Required<StudioSecuritySettings>,
+): Required<StudioSecuritySettings> {
+  return security.protectCovers ? security : UNPROTECTED_STUDIO_SECURITY;
 }
 
 export interface GalleryDoc {

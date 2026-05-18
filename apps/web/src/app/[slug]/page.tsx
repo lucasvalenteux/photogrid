@@ -14,6 +14,7 @@ import {
 import {
   effectivePublicFaceSearchEnabled,
   effectiveStudioSecurity,
+  securityForStorefrontCovers,
 } from '@/types';
 
 interface Props {
@@ -60,6 +61,7 @@ export default async function PublicStudioPage({ params }: Props) {
   const publicFaceSearchEnabled = effectivePublicFaceSearchEnabled(studio);
   const galleries = await fetchPublicGalleries(studio.id);
   const security = effectiveStudioSecurity(studio);
+  const coverSecurity = securityForStorefrontCovers(security);
   const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
 
   return (
@@ -106,7 +108,7 @@ export default async function PublicStudioPage({ params }: Props) {
                     studioName={studio.name}
                     studioUrl={studioUrl}
                     studioLogoUrl={studio.logoUrl}
-                    security={security}
+                    security={coverSecurity}
                     interactive="none"
                     aspect="aspect-[5/4]"
                     className="rounded-none"

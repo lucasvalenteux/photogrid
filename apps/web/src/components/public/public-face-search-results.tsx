@@ -15,7 +15,7 @@ import type {
   StudioDoc,
   StudioSecuritySettings,
 } from '@/types';
-import { resolveGalleryPrices } from '@/types';
+import { resolveGalleryPrices, securityForStorefrontCovers } from '@/types';
 
 import { StorefrontAlbumCard } from './storefront-album-card';
 import { StorefrontPhotoGrid } from './storefront-photo-grid';
@@ -64,6 +64,10 @@ export function PublicFaceSearchResults({
   );
 
   const matchedPhotoIds = React.useMemo(() => new Set(photoIds ?? []), [photoIds]);
+  const coverSecurity = React.useMemo(
+    () => securityForStorefrontCovers(security),
+    [security],
+  );
 
   const matchedPhotos = React.useMemo(() => {
     if (!photoIds) return [];
@@ -158,7 +162,7 @@ export function PublicFaceSearchResults({
                     logoUrl: studio.logoUrl,
                   }}
                   studioUrl={studioUrl}
-                  security={security}
+                  security={coverSecurity}
                   gallery={{ id: gallery.id, title: gallery.title }}
                   pricePerAlbumCents={prices.pricePerAlbumCents}
                 />

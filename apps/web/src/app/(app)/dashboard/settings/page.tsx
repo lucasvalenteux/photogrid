@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { APP_DOMAIN } from '@photogrid/config';
@@ -11,6 +12,11 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
   Input,
   Label,
   Switch,
@@ -46,6 +52,7 @@ type SecurityKey =
   | 'watermark'
   | 'disableRightClick'
   | 'screenshotShield'
+  | 'protectCovers'
   | 'antiAi';
 
 export default function SettingsPage() {
@@ -124,6 +131,7 @@ export default function SettingsPage() {
     watermark: false,
     disableRightClick: false,
     screenshotShield: false,
+    protectCovers: false,
     antiAi: false,
   });
 
@@ -137,6 +145,7 @@ export default function SettingsPage() {
     persistedSecurity.watermark,
     persistedSecurity.disableRightClick,
     persistedSecurity.screenshotShield,
+    persistedSecurity.protectCovers,
     persistedSecurity.antiAi,
   ]);
 
@@ -336,12 +345,42 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Visibilidade</CardTitle>
-          <CardDescription>
-            Proteções aplicadas às fotos no seu site público. Ative o que
-            faz sentido para o seu fluxo de venda.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div className="space-y-1.5">
+            <CardTitle>Visibilidade</CardTitle>
+            <CardDescription>
+              Proteções aplicadas às fotos no seu site público. Ative o que
+              faz sentido para o seu fluxo de venda.
+            </CardDescription>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Opções avançadas de visibilidade"
+              >
+                <MoreHorizontal className="size-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-72">
+              <DropdownMenuLabel>Opções avançadas</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem
+                checked={security.protectCovers}
+                disabled={!studio || savingSecurity.protectCovers}
+                onCheckedChange={(next) =>
+                  onToggleSecurity('protectCovers', next === true)
+                }
+              >
+                Aplicar regras nas capas dos álbuns
+              </DropdownMenuCheckboxItem>
+              <p className="px-2 pb-2 pt-1 text-xs leading-5 text-muted-foreground">
+                Desativado por padrão. Quando desligado, capas ficam limpas e
+                as proteções valem apenas para fotos internas.
+              </p>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </CardHeader>
         <CardContent className="divide-y divide-border">
           <SecurityRow
