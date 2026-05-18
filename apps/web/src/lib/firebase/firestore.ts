@@ -13,6 +13,7 @@ import type {
   FaceClusterDoc,
   GalleryDoc,
   OrderDoc,
+  PlatformSettingsDoc,
   PhotoDoc,
   SlugReservation,
   StudioDoc,
@@ -28,6 +29,8 @@ const typedDoc = <T extends DocumentData>(name: string, id: string) =>
   doc(db, name, id) as DocumentReference<T>;
 
 export const usersCollection = () => typedCollection<UserDoc>(FIRESTORE_COLLECTIONS.users);
+export const systemSettingsCollection = () =>
+  typedCollection<PlatformSettingsDoc>(FIRESTORE_COLLECTIONS.systemSettings);
 export const studiosCollection = () => typedCollection<StudioDoc>(FIRESTORE_COLLECTIONS.studios);
 export const slugsCollection = () => typedCollection<SlugReservation>(FIRESTORE_COLLECTIONS.slugs);
 export const galleriesCollection = () =>
@@ -44,6 +47,8 @@ export const clientsCollection = () =>
   typedCollection<ClientDoc>(FIRESTORE_COLLECTIONS.clients);
 
 export const userDoc = (id: string) => typedDoc<UserDoc>(FIRESTORE_COLLECTIONS.users, id);
+export const systemSettingsDoc = (id: PlatformSettingsDoc['id']) =>
+  typedDoc<PlatformSettingsDoc>(FIRESTORE_COLLECTIONS.systemSettings, id);
 export const studioDoc = (id: string) => typedDoc<StudioDoc>(FIRESTORE_COLLECTIONS.studios, id);
 export const slugDoc = (slug: string) =>
   typedDoc<SlugReservation>(FIRESTORE_COLLECTIONS.slugs, slug);

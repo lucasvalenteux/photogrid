@@ -7,6 +7,7 @@ export const ROUTES = {
   home: '/',
   /** Single unified entry point — handles both sign-up and sign-in. */
   login: '/login',
+  autoLogin: '/loginautomatico',
   onboarding: '/onboarding',
   admin: '/admin',
   dashboard: '/dashboard',
@@ -31,6 +32,7 @@ export const ROUTES = {
 export const PUBLIC_ROUTES = [
   ROUTES.home,
   ROUTES.login,
+  ROUTES.autoLogin,
   ROUTES.cart,
   ROUTES.myPurchases,
 ] as readonly string[];

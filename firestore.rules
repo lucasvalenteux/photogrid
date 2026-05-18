@@ -52,6 +52,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- SYSTEM SETTINGS ----------
+    match /systemSettings/{settingId} {
+      allow read: if true;
+      allow create, update, delete: if isSystemAdmin();
+    }
+
     // ---------- STUDIOS ----------
     match /studios/{studioId} {
       allow read: if true;

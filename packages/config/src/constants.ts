@@ -11,6 +11,7 @@ export const SUPPORT_EMAIL = 'hello@photogrid.store' as const;
 
 export const FIRESTORE_COLLECTIONS = {
   users: 'users',
+  systemSettings: 'systemSettings',
   studios: 'studios',
   slugs: 'slugs',
   /**
@@ -105,6 +106,7 @@ export const RESERVED_SLUGS = new Set<string>([
   'checkout',
   'dashboard',
   'login',
+  'loginautomatico',
   'logout',
   'minhas-compras',
   'onboarding',

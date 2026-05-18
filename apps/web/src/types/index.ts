@@ -15,6 +15,13 @@ export interface UserDoc {
   createdAt: string;
 }
 
+export interface PlatformSettingsDoc {
+  id: 'platform';
+  redirectHomeToAutoLogin?: boolean;
+  updatedAt?: string | null;
+  updatedBy?: string | null;
+}
+
 /**
  * Per-studio photo-protection toggles. Every flag defaults to `false`
  * (no protection) for backwards compatibility — see

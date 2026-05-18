@@ -64,6 +64,10 @@ import {
 } from '@/lib/firebase/firestore';
 import { formatCents } from '@/lib/format/currency';
 import { useAuth } from '@/lib/hooks/use-auth';
+import {
+  subscribeToPlatformSettings,
+  updateHomeRedirectSetting,
+} from '@/lib/services/platform-settings-service';
 import type {
   AlbumDoc,
   ClientDoc,
@@ -203,6 +207,11 @@ function AdminDashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const { data, errors } = useAdminData();
+  const {
+    settings: platformSettings,
+    loading: loadingPlatformSettings,
+    error: platformSettingsError,
+  } = usePlatformSettings();
   const [editingStudio, setEditingStudio] = React.useState<StudioDoc | null>(null);
   const [deletingStudio, setDeletingStudio] = React.useState<StudioRow | null>(null);
 
@@ -393,6 +402,13 @@ function AdminDashboard() {
           </Card>
         ) : null}
 
+        <PlatformSettingsCard
+          settings={platformSettings}
+          loading={loadingPlatformSettings}
+          error={platformSettingsError}
+          adminEmail={user?.email ?? ''}
+        />
+
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             title="Usuários"
@@ -557,6 +573,151 @@ function useAdminData() {
   }, [user?.email]);
 
   return { data, errors };
+}
+
+function usePlatformSettings() {
+  const [settings, setSettings] = React.useState({
+    redirectHomeToAutoLogin: false,
+  });
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(false);
+
+  React.useEffect(() => {
+    setLoading(true);
+    const unsubscribe = subscribeToPlatformSettings(
+      (next) => {
+        setSettings({
+          redirectHomeToAutoLogin: next.redirectHomeToAutoLogin === true,
+        });
+        setError(false);
+        setLoading(false);
+      },
+      (subscribeError) => {
+        console.error('[admin] platform settings subscription error', subscribeError);
+        setError(true);
+        setLoading(false);
+      },
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  return { settings, loading, error };
+}
+
+function PlatformSettingsCard({
+  settings,
+  loading,
+  error,
+  adminEmail,
+}: {
+  settings: { redirectHomeToAutoLogin: boolean };
+  loading: boolean;
+  error: boolean;
+  adminEmail: string;
+}) {
+  const [saving, setSaving] = React.useState(false);
+
+  const onToggle = async (enabled: boolean) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await updateHomeRedirectSetting({
+        enabled,
+        updatedBy: adminEmail,
+      });
+      toast.success(
+        enabled
+          ? 'Home redirecionando para /loginautomatico.'
+          : 'Home pública reativada.',
+      );
+    } catch (updateError) {
+      console.error('[admin] update platform settings error', updateError);
+      toast.error('Não foi possível salvar a configuração.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
+        <div className="p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex size-10 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-inset ring-brand-200">
+                  <Gauge className="size-5" />
+                </span>
+                <div>
+                  <h2 className="text-base font-semibold text-ink">
+                    Configurações gerais da ferramenta
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Controles globais que afetam a experiência pública do Photogrid.
+                  </p>
+                </div>
+              </div>
+            </div>
+            {error ? (
+              <Badge
+                variant="outline"
+                className="border-amber-200 bg-amber-50 text-amber-700"
+              >
+                Erro ao carregar
+              </Badge>
+            ) : (
+              <Badge variant="success">Configuração ativa</Badge>
+            )}
+          </div>
+
+          <div className="mt-5 rounded-xl border border-border bg-muted/40 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Redirecionar home para login automático
+                </p>
+                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                  Quando ativo, visitantes que acessarem{' '}
+                  <span className="font-medium text-foreground">https://photogrid.store/</span>{' '}
+                  serão enviados para{' '}
+                  <span className="font-medium text-foreground">
+                    https://photogrid.store/loginautomatico
+                  </span>
+                  .
+                </p>
+              </div>
+              {loading ? (
+                <Skeleton className="h-6 w-11 rounded-full" />
+              ) : (
+                <Switch
+                  checked={settings.redirectHomeToAutoLogin}
+                  onCheckedChange={onToggle}
+                  disabled={saving || error}
+                  label="Redirecionar home para login automático"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-border bg-ink p-5 text-white lg:border-l lg:border-t-0">
+          <p className="text-sm text-white/60">Status atual</p>
+          {loading ? (
+            <Skeleton className="mt-3 h-8 w-40 bg-white/15" />
+          ) : (
+            <p className="mt-2 text-2xl font-semibold tracking-tight">
+              {settings.redirectHomeToAutoLogin ? 'Login direto' : 'Home pública'}
+            </p>
+          )}
+          <p className="mt-2 text-sm leading-6 text-white/60">
+            Use este controle enquanto a operação ainda é mais fechada e o foco
+            está em clientes já convidados para entrar.
+          </p>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 function HeroMiniStat({ label, value }: { label: string; value: string | null }) {
