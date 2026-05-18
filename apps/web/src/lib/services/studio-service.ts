@@ -132,7 +132,12 @@ export async function updateStudioPublicFaceSearch(
  */
 export async function updateStudioSecurity(
   studioId: string,
-  key: 'dimPhotos' | 'watermark' | 'disableRightClick' | 'antiAi',
+  key:
+    | 'dimPhotos'
+    | 'watermark'
+    | 'disableRightClick'
+    | 'screenshotShield'
+    | 'antiAi',
   value: boolean,
 ): Promise<void> {
   await updateDoc(studioDoc(studioId), { [`security.${key}`]: value });

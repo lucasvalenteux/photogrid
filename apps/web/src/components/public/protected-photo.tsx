@@ -19,6 +19,9 @@ import type { StudioSecuritySettings } from '@/types';
  *                          touch long-press, AND switches the wrapping
  *                          element from a link (which would expose the
  *                          raw image URL) to a plain div.
+ *   4. `screenshotShield` — best-effort blanking on common screenshot and
+ *                          print shortcuts. This cannot block OS-level
+ *                          capture in every browser, but it adds friction.
  *
  * Each layer is opt-in and stacks cleanly with the others.  All three off
  * gives the original "click to open in new tab" behaviour for backwards
@@ -74,7 +77,13 @@ export function ProtectedPhoto({
   className,
   fit = 'cover',
 }: ProtectedPhotoProps) {
-  const { dimPhotos, watermark, disableRightClick, antiAi } = security;
+  const {
+    dimPhotos,
+    watermark,
+    disableRightClick,
+    screenshotShield,
+    antiAi,
+  } = security;
 
   // Block context menu + drag at the wrapper level. We intentionally
   // *don't* try to block keyboard shortcuts or DevTools — that's a
@@ -158,7 +167,78 @@ export function ProtectedPhoto({
       ) : null}
 
       {antiAi ? <AntiAiNoiseOverlay /> : null}
+
+      {screenshotShield ? <ScreenshotShieldOverlay /> : null}
     </figure>
+  );
+}
+
+function ScreenshotShieldOverlay() {
+  React.useEffect(() => {
+    const root = document.documentElement;
+    let timeout: number | null = null;
+
+    const clear = () => {
+      root.removeAttribute('data-photogrid-screenshot-shield');
+      if (timeout) {
+        window.clearTimeout(timeout);
+        timeout = null;
+      }
+    };
+
+    const activate = () => {
+      root.setAttribute('data-photogrid-screenshot-shield', 'active');
+      if (timeout) window.clearTimeout(timeout);
+      timeout = window.setTimeout(clear, 2200);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      const isPrintScreen = key === 'printscreen';
+      const isMacCapture =
+        event.metaKey && event.shiftKey && ['3', '4', '5'].includes(key);
+      const isWindowsSnipping = event.metaKey && event.shiftKey && key === 's';
+
+      if (isPrintScreen || isMacCapture || isWindowsSnipping) {
+        activate();
+      }
+    };
+
+    const onBeforePrint = () => activate();
+    const onAfterPrint = () => clear();
+
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    window.addEventListener('beforeprint', onBeforePrint);
+    window.addEventListener('afterprint', onAfterPrint);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, { capture: true });
+      window.removeEventListener('beforeprint', onBeforePrint);
+      window.removeEventListener('afterprint', onAfterPrint);
+      clear();
+    };
+  }, []);
+
+  return (
+    <>
+      <style>
+        {`
+          html[data-photogrid-screenshot-shield="active"] .photogrid-screenshot-shield {
+            opacity: 1 !important;
+          }
+
+          @media print {
+            .photogrid-screenshot-shield {
+              opacity: 1 !important;
+            }
+          }
+        `}
+      </style>
+      <div
+        aria-hidden="true"
+        className="photogrid-screenshot-shield pointer-events-none absolute inset-0 z-20 bg-black opacity-0 transition-opacity duration-75"
+      />
+    </>
   );
 }
 

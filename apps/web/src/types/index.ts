@@ -42,6 +42,12 @@ export interface StudioSecuritySettings {
    */
   disableRightClick?: boolean;
   /**
+   * Best-effort screenshot friction. Browsers cannot reliably block
+   * operating-system screenshots, but we can blank protected photos when
+   * common capture/print shortcuts are detected.
+   */
+  screenshotShield?: boolean;
+  /**
    * Anti-AI defenses for users who screenshot the gallery and try to
    * "remove watermark / upscale" via generative AI.
    *
@@ -196,6 +202,7 @@ export function effectiveStudioSecurity(
     dimPhotos: s.dimPhotos === true,
     watermark: s.watermark === true,
     disableRightClick: s.disableRightClick === true,
+    screenshotShield: s.screenshotShield === true,
     antiAi: s.antiAi === true,
   };
 }

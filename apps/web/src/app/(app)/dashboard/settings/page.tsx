@@ -41,7 +41,12 @@ import {
   type StorefrontThemeId,
 } from '@/types';
 
-type SecurityKey = 'dimPhotos' | 'watermark' | 'disableRightClick' | 'antiAi';
+type SecurityKey =
+  | 'dimPhotos'
+  | 'watermark'
+  | 'disableRightClick'
+  | 'screenshotShield'
+  | 'antiAi';
 
 export default function SettingsPage() {
   const { studio, user } = useAuth();
@@ -118,6 +123,7 @@ export default function SettingsPage() {
     dimPhotos: false,
     watermark: false,
     disableRightClick: false,
+    screenshotShield: false,
     antiAi: false,
   });
 
@@ -130,6 +136,7 @@ export default function SettingsPage() {
     persistedSecurity.dimPhotos,
     persistedSecurity.watermark,
     persistedSecurity.disableRightClick,
+    persistedSecurity.screenshotShield,
     persistedSecurity.antiAi,
   ]);
 
@@ -360,6 +367,14 @@ export default function SettingsPage() {
             checked={security.disableRightClick}
             disabled={!studio || savingSecurity.disableRightClick}
             onChange={(next) => onToggleSecurity('disableRightClick', next)}
+          />
+          <SecurityRow
+            id="security-screenshot"
+            label="Dificultar capturas de tela"
+            description="Ao detectar atalhos comuns de print ou impressão, cobre as fotos públicas com uma camada preta antes da captura sempre que o navegador permitir."
+            checked={security.screenshotShield}
+            disabled={!studio || savingSecurity.screenshotShield}
+            onChange={(next) => onToggleSecurity('screenshotShield', next)}
           />
           <SecurityRow
             id="security-antiai"
