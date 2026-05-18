@@ -152,6 +152,15 @@ export default function GalleryDetailPage() {
   const isOwner = Boolean(studio && gallery && studio.id === gallery.studioId);
   const galleryVisibility = effectiveVisibility(gallery?.visibility);
 
+  // Indexed by id so the cluster suggestion rows / dialog can resolve
+  // photoIds → thumbnail URL without firing additional Firestore reads.
+  // Recomputed only when the photos array reference changes (subscription
+  // emits a new array on every snapshot, so this matches the cadence).
+  const photosById = React.useMemo(
+    () => new Map(photos.map((p) => [p.id, p])),
+    [photos],
+  );
+
   // Self-heal denormalised counters once we know the real numbers. Guarded
   // by isOwner so visitors don't try to write — and the service no-ops when
   // everything already matches, so this is cheap on every navigation.
@@ -336,6 +345,7 @@ export default function GalleryDetailPage() {
         <ClusterSuggestions
           clusters={clusters}
           galleryTitle={gallery.title}
+          photosById={photosById}
           onReprocess={photos.length > 0 ? onReprocess : undefined}
           reprocessing={reprocessing}
           onConsolidate={onConsolidate}
