@@ -70,7 +70,7 @@ export function PublicFaceSearch({
   const matchedAlbums = React.useMemo(
     () =>
       albums.filter((album) =>
-        album.photoIds.some((photoId) => matchScoreByPhotoId.has(photoId)),
+        (album.photoIds ?? []).some((photoId) => matchScoreByPhotoId.has(photoId)),
       ),
     [albums, matchScoreByPhotoId],
   );
@@ -187,7 +187,7 @@ export function PublicFaceSearch({
                           {album.title}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {album.photoIds.length} fotos
+                          {album.photoIds?.length ?? 0} fotos
                         </p>
                       </Link>
                     ))}

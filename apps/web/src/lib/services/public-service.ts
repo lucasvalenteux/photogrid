@@ -262,7 +262,7 @@ export async function fetchPublicFaceSearchIndex(
 
   const allowedPhotoIds = new Set<string>();
   for (const album of publicAlbums) {
-    album.photoIds.forEach((photoId) => allowedPhotoIds.add(photoId));
+    (album.photoIds ?? []).forEach((photoId) => allowedPhotoIds.add(photoId));
   }
 
   const photosSnap = await getDocs(
