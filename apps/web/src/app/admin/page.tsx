@@ -628,7 +628,7 @@ function PlatformSettingsCard({
       });
       toast.success(
         enabled
-          ? 'Home redirecionando para /loginautomatico.'
+          ? 'Home redirecionando para /login.'
           : 'Home pública reativada.',
       );
     } catch (updateError) {
@@ -682,7 +682,7 @@ function PlatformSettingsCard({
                   <span className="font-medium text-foreground">https://photogrid.store/</span>{' '}
                   serão enviados para{' '}
                   <span className="font-medium text-foreground">
-                    https://photogrid.store/loginautomatico
+                    https://photogrid.store/login
                   </span>
                   .
                 </p>

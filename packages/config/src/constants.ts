@@ -106,7 +106,6 @@ export const RESERVED_SLUGS = new Set<string>([
   'checkout',
   'dashboard',
   'login',
-  'loginautomatico',
   'logout',
   'minhas-compras',
   'onboarding',

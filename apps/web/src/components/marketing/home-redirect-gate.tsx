@@ -16,7 +16,7 @@ export function HomeRedirectGate() {
     getPlatformSettings()
       .then((settings) => {
         if (cancelled || !settings.redirectHomeToAutoLogin) return;
-        router.replace(ROUTES.autoLogin);
+        router.replace(ROUTES.login);
       })
       .catch((error) => {
         console.warn('[home] redirect setting unavailable', error);

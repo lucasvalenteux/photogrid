@@ -156,13 +156,6 @@ export function ProtectedPhoto({
   );
 }
 
-/**
- * Dense tiled diagonal watermark with the studio name and storefront URL.
- * The tile keeps the full text readable while repeating often enough that
- * screenshots retain multiple protected bands across faces, clothes, and
- * backgrounds. Each line gets a translucent dark pill plus a black stroke,
- * which gives the smaller text contrast on both light and dark photos.
- */
 function WatermarkOverlay({
   studioName,
   studioUrl,
@@ -170,67 +163,54 @@ function WatermarkOverlay({
   studioName: string;
   studioUrl?: string;
 }) {
-  const nameLine = `© ${studioName}`.toUpperCase();
-  const urlLine = studioUrl ?? '';
-
-  // Width grows with whichever line is longer, but the font is smaller
-  // than previous versions so the tile can repeat more often.
-  const widthDriver = Math.max(nameLine.length, urlLine.length);
-  const tileWidth = Math.max(260, (widthDriver + 5) * 8.8);
-  const tileHeight = urlLine ? 62 : 34;
-  const pillWidth = tileWidth - 18;
-
-  const namePill = `<rect x='9' y='6' width='${pillWidth}' height='18' rx='9'
-        fill='black' fill-opacity='0.24'/>`;
-  const nameText = `<text x='50%' y='16' text-anchor='middle' dominant-baseline='middle'
-        font-family='system-ui, -apple-system, sans-serif'
-        font-size='10.5' font-weight='700' letter-spacing='1.7'
-        fill='white' fill-opacity='0.86'
-        stroke='black' stroke-opacity='0.82' stroke-width='1'
-        paint-order='stroke'>${escapeXml(nameLine)}</text>`;
-
-  const urlPill = urlLine
-    ? `<rect x='9' y='34' width='${pillWidth}' height='16' rx='8'
-        fill='black' fill-opacity='0.2'/>`
-    : '';
-  const urlText = urlLine
-    ? `<text x='50%' y='42' text-anchor='middle' dominant-baseline='middle'
-        font-family='system-ui, -apple-system, sans-serif'
-        font-size='8.5' font-weight='600' letter-spacing='0.9'
-        fill='white' fill-opacity='0.82'
-        stroke='black' stroke-opacity='0.78' stroke-width='0.8'
-        paint-order='stroke'>${escapeXml(urlLine)}</text>`
-    : '';
-
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tileWidth}' height='${tileHeight}'>${namePill}${nameText}${urlPill}${urlText}</svg>`;
-  const backgroundImage = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 -rotate-[18deg] scale-[1.65]"
-      style={{
-        backgroundImage,
-        backgroundRepeat: 'repeat',
-        backgroundSize: `${tileWidth}px ${tileHeight}px`,
-      }}
-    />
+      className="pointer-events-none absolute inset-0 flex flex-col justify-center gap-[8%] overflow-hidden px-3 py-4"
+    >
+      {Array.from({ length: 9 }).map((_, index) => (
+        <WatermarkLine
+          key={index}
+          studioName={studioName}
+          studioUrl={studioUrl}
+          emphasis={index === 4}
+        />
+      ))}
+    </div>
   );
 }
 
-// Minimal XML escaping for studio names that contain `<`, `>`, `&`,
-// `'`, or `"`. Without this, an apostrophe in the studio name would
-// terminate the SVG attribute and break the watermark entirely.
-function escapeXml(value: string): string {
-  return value.replace(/[<>&'"]/g, (char) => XML_ENTITIES[char] ?? char);
+function WatermarkLine({
+  studioName,
+  studioUrl,
+  emphasis,
+}: {
+  studioName: string;
+  studioUrl?: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <div
+      className="flex w-full select-none items-center justify-center text-center font-semibold uppercase tracking-[0.22em] text-white/72"
+      style={{
+        textShadow:
+          '0 1px 2px rgba(0,0,0,0.9), 0 -1px 2px rgba(0,0,0,0.75), 1px 0 2px rgba(0,0,0,0.65), -1px 0 2px rgba(0,0,0,0.65)',
+      }}
+    >
+      <span className={emphasis ? 'text-[12px] sm:text-[13px]' : 'text-[10px] sm:text-[11px]'}>
+        © {studioName}
+        {studioUrl ? (
+          <>
+            <span className="mx-3 text-white/45">•</span>
+            <span className="normal-case tracking-[0.14em] text-white/62">
+              {studioUrl}
+            </span>
+          </>
+        ) : null}
+      </span>
+    </div>
+  );
 }
-
-const XML_ENTITIES: Record<string, string> = {
-  '<': '&lt;',
-  '>': '&gt;',
-  '&': '&amp;',
-  "'": '&#39;',
-  '"': '&quot;',
-};
 
 /**
  * Procedural noise overlay used by the anti-AI mode.
