@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Camera } from 'lucide-react';
+import { Camera, ShoppingBag } from 'lucide-react';
 
 import { APP_NAME, ROUTES } from '@photogrid/config';
 import { Logo } from '@photogrid/ui';
@@ -8,6 +8,7 @@ import { CartProvider } from '@/lib/cart/cart-context';
 import type { StudioDoc } from '@/types';
 
 import { CartButton } from './cart-button';
+import { FloatingCartBar } from './floating-cart-bar';
 
 interface StorefrontShellProps {
   studio: StudioDoc;
@@ -47,6 +48,14 @@ export function StorefrontShell({ studio, children }: StorefrontShellProps) {
             </Link>
 
             <div className="flex items-center gap-2">
+              <Link
+                href={ROUTES.myPurchases}
+                className="inline-flex items-center gap-1.5 rounded-full border border-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-border hover:bg-card hover:text-foreground"
+                aria-label="Acompanhar minhas compras"
+              >
+                <ShoppingBag className="size-3.5" />
+                <span className="hidden sm:inline">Minhas compras</span>
+              </Link>
               <CartButton slug={studio.slug} />
               <Link
                 href={ROUTES.home}
@@ -59,7 +68,8 @@ export function StorefrontShell({ studio, children }: StorefrontShellProps) {
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 pb-20 sm:pb-24">{children}</main>
+        <FloatingCartBar slug={studio.slug} />
 
         <footer className="border-t border-border bg-card">
           <div className="container-app flex flex-col items-center justify-between gap-3 py-6 text-xs text-muted-foreground md:flex-row">

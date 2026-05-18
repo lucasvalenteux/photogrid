@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
+import {
+  APP_DOMAIN,
+  ROUTES,
+} from '@photogrid/config';
 import { ArrowLeft, ArrowRight, Check, Copy, ShoppingCart, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { ROUTES } from '@photogrid/config';
 import {
   Badge,
   Button,
@@ -15,12 +18,18 @@ import {
   cn,
 } from '@photogrid/ui';
 
+import { ProtectedPhoto } from '@/components/public/protected-photo';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import { useCart } from '@/lib/cart/cart-context';
 import { formatCents } from '@/lib/format/currency';
 import { displayBrPhone, formatBrPhone, isValidBrPhone, toE164Br } from '@/lib/format/phone';
 import { confirmCheckout } from '@/lib/services/order-service';
-import type { OrderItem, StudioDoc } from '@/types';
+import {
+  effectiveStudioSecurity,
+  type OrderItem,
+  type StudioDoc,
+  type StudioSecuritySettings,
+} from '@/types';
 
 interface CartPageClientProps {
   studio: StudioDoc;
@@ -61,6 +70,11 @@ function CartInner({ studio }: { studio: StudioDoc }) {
   const cart = useCart();
   const router = useRouter();
   const [step, setStep] = React.useState<Step>('items');
+  const security = React.useMemo(
+    () => effectiveStudioSecurity(studio),
+    [studio],
+  );
+  const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
 
   // Name + phone draft (used in step 2). We pre-fill from whatever the
   // cart context already knows so returning customers don't re-type.
@@ -197,7 +211,13 @@ function CartInner({ studio }: { studio: StudioDoc }) {
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           {step === 'items' ? (
-            <CartItems items={cart.items} onRemove={onRemove} />
+            <CartItems
+              items={cart.items}
+              onRemove={onRemove}
+              studioName={studio.name}
+              studioUrl={studioUrl}
+              security={security}
+            />
           ) : null}
           {step === 'confirm' ? (
             <CustomerForm
@@ -275,24 +295,34 @@ function StepIndicator({ step }: { step: Step }) {
 function CartItems({
   items,
   onRemove,
+  studioName,
+  studioUrl,
+  security,
 }: {
   items: OrderItem[];
   onRemove: (item: OrderItem) => Promise<void>;
+  studioName: string;
+  studioUrl: string;
+  security: Required<StudioSecuritySettings>;
 }) {
   return (
     <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
-      {items.map((item) => (
+      {items.map((item, index) => (
         <li key={`${item.type}:${item.itemId}`} className="flex items-center gap-4 p-4 sm:p-5">
-          <div className="size-16 shrink-0 overflow-hidden rounded-lg bg-muted">
+          <div className="size-16 shrink-0">
             {item.thumbnailUrl ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <ProtectedPhoto
                 src={item.thumbnailUrl}
-                alt=""
-                className="size-full object-cover"
-                loading="lazy"
+                alt={cartItemLabel(item, index)}
+                studioName={studioName}
+                studioUrl={studioUrl}
+                security={security}
+                interactive="none"
+                className="size-16"
               />
-            ) : null}
+            ) : (
+              <div className="size-16 rounded-lg bg-muted" />
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -300,7 +330,7 @@ function CartItems({
                 {item.type === 'album' ? 'Álbum' : 'Foto'}
               </Badge>
               <p className="truncate text-sm font-medium text-foreground">
-                {item.title}
+                {cartItemLabel(item, index)}
               </p>
             </div>
             {item.type === 'album' && typeof item.photoCount === 'number' ? (
@@ -316,7 +346,7 @@ function CartItems({
             <button
               type="button"
               onClick={() => onRemove(item)}
-              aria-label={`Remover ${item.title}`}
+              aria-label="Remover item"
               className="mt-1 inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-destructive"
             >
               <Trash2 className="size-3.5" />
@@ -327,6 +357,17 @@ function CartItems({
       ))}
     </ul>
   );
+}
+
+/**
+ * Display label for cart lines. We deliberately hide raw photo
+ * filenames (which can leak storage paths / camera serials) and
+ * substitute a friendly "Foto N" tag. Albums keep their title since
+ * that's the photographer's curated copy.
+ */
+function cartItemLabel(item: OrderItem, index: number): string {
+  if (item.type === 'album') return item.title || 'Álbum';
+  return `Foto ${String(index + 1).padStart(2, '0')}`;
 }
 
 function CartSummary({
@@ -476,34 +517,24 @@ function PaymentPanel({
 
   const pix = payment.pix;
   return (
-    <div className="space-y-4 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <div className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
       <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
         Pagamento via Pix
       </h2>
-      <div className="rounded-xl border border-border bg-background p-4">
-        <PixField label="Tipo de chave" value={PIX_KEY_LABEL[pix.keyType] ?? pix.keyType} />
-        <PixField label="Chave" value={pix.key} copyable />
-        <PixField label="Beneficiário" value={pix.beneficiaryName} />
-        <PixField label="Cidade" value={pix.city} />
-        <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm">
-          <span className="text-muted-foreground">Total</span>
-          <span className="text-lg font-semibold text-ink">
-            {formatCents(totalCents)}
-          </span>
-        </div>
-      </div>
-      <ol className="space-y-2 text-xs text-muted-foreground">
-        <li>
-          1. Abra o app do seu banco e escolha pagar via{' '}
-          <strong className="text-foreground">Pix</strong>.
-        </li>
-        <li>2. Use a chave acima ou copie o valor total.</li>
-        <li>
-          3. Volte aqui e clique em &ldquo;Pagamento realizado&rdquo; — o
-          estúdio confirma o recebimento em alguns minutos.
-        </li>
-      </ol>
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+
+      <PixKeyCard
+        keyType={pix.keyType}
+        keyValue={pix.key}
+        totalCents={totalCents}
+      />
+
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+        <PixMeta label="Beneficiário" value={pix.beneficiaryName} />
+        <PixMeta label="Cidade" value={pix.city} />
+        {customerName ? <PixMeta label="Em nome de" value={customerName} /> : null}
+      </dl>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
         <Button type="button" variant="ghost" onClick={onBack} disabled={submitting}>
           <ArrowLeft className="size-4" />
           Voltar
@@ -513,26 +544,30 @@ function PaymentPanel({
           <Check className="size-4" />
         </Button>
       </div>
-      <p className="text-[11px] text-muted-foreground">
-        {customerName ? `Em nome de ${customerName}` : ''}
-      </p>
     </div>
   );
 }
 
-function PixField({
-  label,
-  value,
-  copyable,
+/**
+ * Hero block of the payment panel. Pix key + total are the two
+ * numbers the visitor needs to act on — so we render them at the
+ * largest type on the page and put the copy button right next to the
+ * key. Anything else (beneficiary / city / customer name) goes into
+ * the smaller meta row below.
+ */
+function PixKeyCard({
+  keyType,
+  keyValue,
+  totalCents,
 }: {
-  label: string;
-  value: string;
-  copyable?: boolean;
+  keyType: string;
+  keyValue: string;
+  totalCents: number;
 }) {
   const [copied, setCopied] = React.useState(false);
   const onCopy = async () => {
     try {
-      await navigator.clipboard.writeText(value);
+      await navigator.clipboard.writeText(keyValue);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
       toast.success('Chave copiada.');
@@ -540,25 +575,47 @@ function PixField({
       toast.error('Não foi possível copiar.');
     }
   };
-
   return (
-    <div className="flex items-center justify-between gap-3 py-1.5">
-      <span className="text-xs uppercase tracking-wider text-muted-foreground">
-        {label}
-      </span>
-      <span className="flex items-center gap-2 text-sm text-foreground">
-        <span className="font-medium">{value}</span>
-        {copyable ? (
-          <button
-            type="button"
-            onClick={onCopy}
-            aria-label="Copiar chave Pix"
-            className="text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-          </button>
-        ) : null}
-      </span>
+    <div className="rounded-2xl border border-border bg-background p-5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          Chave Pix · {PIX_KEY_LABEL[keyType] ?? keyType}
+        </span>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-foreground transition-colors hover:bg-muted"
+        >
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+          {copied ? 'Copiado' : 'Copiar'}
+        </button>
+      </div>
+      <p
+        className="mt-2 break-all font-mono text-base font-semibold text-ink sm:text-lg"
+        title={keyValue}
+      >
+        {keyValue}
+      </p>
+      <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
+        <span className="text-xs uppercase tracking-wider text-muted-foreground">
+          Total a pagar
+        </span>
+        <span className="text-2xl font-semibold tabular-nums text-ink">
+          {formatCents(totalCents)}
+        </span>
+      </div>
     </div>
   );
 }
+
+function PixMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-0.5 text-sm text-foreground">{value}</dd>
+    </div>
+  );
+}
+

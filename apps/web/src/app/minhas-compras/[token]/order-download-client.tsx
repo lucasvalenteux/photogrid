@@ -49,7 +49,7 @@ export function OrderDownloadClient({
       for (let i = 0; i < photos.length; i += 1) {
         const photo = photos[i];
         if (!photo) continue;
-        await downloadOne(photo);
+        downloadOne(photo);
         setProgress({ done: i + 1, total: photos.length });
         // Small breathing room so browsers don't queue the popups
         // as a single "do you want to allow multiple downloads?".
@@ -181,9 +181,9 @@ export function OrderDownloadClient({
 
 function PhotoTile({ photo }: { photo: PhotoDoc }) {
   const [done, setDone] = React.useState(false);
-  const onClick = async () => {
+  const onClick = () => {
     try {
-      await downloadOne(photo);
+      downloadOne(photo);
       setDone(true);
       window.setTimeout(() => setDone(false), 1500);
     } catch (error) {
@@ -214,25 +214,28 @@ function PhotoTile({ photo }: { photo: PhotoDoc }) {
   );
 }
 
-async function downloadOne(photo: PhotoDoc): Promise<void> {
-  // We fetch the binary so we can preserve the original filename via
-  // `download` — directly using <a download> with a Storage URL keeps
-  // the auto-generated id name. The Firebase download URL is CORS-
-  // open so this `fetch` works without extra config.
-  const response = await fetch(photo.imageUrl);
-  if (!response.ok) throw new Error('download_failed');
-  const blob = await response.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const a = document.createElement('a');
-    a.href = objectUrl;
-    a.download = photo.fileName || `${photo.id}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
+function downloadOne(photo: PhotoDoc): void {
+  // Route through our own /api/storage-download proxy: the upstream
+  // Firebase Storage bucket doesn't ship CORS headers, so a direct
+  // `fetch(photo.imageUrl)` from the browser is blocked. The proxy
+  // forwards the bytes with `Content-Disposition: attachment` and
+  // preserves the original filename — letting us drop the blob/object
+  // URL dance entirely and just point an `<a>` at it.
+  const filename = photo.fileName || `${photo.id}.jpg`;
+  const proxyUrl = `/api/storage-download?url=${encodeURIComponent(
+    photo.imageUrl,
+  )}&filename=${encodeURIComponent(filename)}`;
+
+  const a = document.createElement('a');
+  a.href = proxyUrl;
+  a.download = filename;
+  // Some browsers ignore `download` on same-origin downloads that
+  // already have a Content-Disposition header — that's fine, the
+  // header wins. `rel="noopener"` keeps Safari from opening a new tab.
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 function delay(ms: number): Promise<void> {
