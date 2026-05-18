@@ -109,6 +109,43 @@ export async function signInOrCreate(
   }
 }
 
+/**
+ * Single-purpose sign-in helper used by the two-step login form when
+ * the email is known to belong to an existing account (the server-side
+ * lookup has already told us so). Keeping this distinct from
+ * `signInOrCreate` lets the UI surface a precise "Senha incorreta"
+ * error instead of falling back to the create-account branch.
+ */
+export async function signInUser(
+  email: string,
+  password: string,
+): Promise<AuthResult> {
+  const credential = await signInWithEmailAndPassword(
+    auth,
+    email.trim().toLowerCase(),
+    password,
+  );
+  return { credential, outcome: 'signed_in' };
+}
+
+/**
+ * Companion to `signInUser` for the "this email is new" branch of the
+ * two-step login form. If a race causes another tab to register the
+ * same email in between the lookup and this call, the caller can catch
+ * `auth/email-already-in-use` and prompt for the existing password.
+ */
+export async function createUser(
+  email: string,
+  password: string,
+): Promise<AuthResult> {
+  const credential = await createUserWithEmailAndPassword(
+    auth,
+    email.trim().toLowerCase(),
+    password,
+  );
+  return { credential, outcome: 'created' };
+}
+
 export async function signOut(): Promise<void> {
   return firebaseSignOut(auth);
 }
