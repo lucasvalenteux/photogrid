@@ -7,8 +7,10 @@ import {
   studiosCollection,
   userDoc,
 } from '@/lib/firebase/firestore';
+import { deleteStudioLogo, uploadStudioLogo } from '@/lib/firebase/storage';
 import { slugify, validateSlug } from '@/lib/slug';
 import { FIRESTORE_COLLECTIONS } from '@photogrid/config';
+import type { StudioPaymentSettings } from '@/types';
 
 export interface CreateStudioInput {
   ownerId: string;
@@ -123,6 +125,90 @@ export async function updateStudioSecurity(
   value: boolean,
 ): Promise<void> {
   await updateDoc(studioDoc(studioId), { [`security.${key}`]: value });
+}
+
+/** Rename the studio. Slug is intentionally NOT touched — the public URL
+ *  is part of the studio's identity and the photographer can change it
+ *  in a separate flow (not implemented yet) to avoid breaking links. */
+export async function updateStudioName(
+  studioId: string,
+  name: string,
+): Promise<void> {
+  const trimmed = name.trim();
+  if (trimmed.length < 2) {
+    throw new Error('Nome muito curto.');
+  }
+  await updateDoc(studioDoc(studioId), { name: trimmed });
+}
+
+/**
+ * Replace the studio logo. The flow is:
+ *   1. Upload the new image to Storage (timestamped path).
+ *   2. Patch the Firestore doc with the new URL + path.
+ *   3. Best-effort delete the previous Storage object.
+ *
+ * We do (3) *after* the Firestore write so a half-finished operation
+ * never points at a deleted file. The delete is best-effort because the
+ * old URL might already have been replaced concurrently, or the object
+ * might have been removed manually from the Firebase console.
+ */
+export async function updateStudioLogo({
+  studioId,
+  blob,
+  extension,
+  previousStoragePath,
+}: {
+  studioId: string;
+  blob: Blob;
+  extension: string;
+  previousStoragePath?: string | null;
+}): Promise<{ logoUrl: string; logoStoragePath: string }> {
+  const uploaded = await uploadStudioLogo({ studioId, blob, extension });
+  await updateDoc(studioDoc(studioId), {
+    logoUrl: uploaded.downloadUrl,
+    logoStoragePath: uploaded.storagePath,
+  });
+  if (previousStoragePath && previousStoragePath !== uploaded.storagePath) {
+    try {
+      await deleteStudioLogo(previousStoragePath);
+    } catch (error) {
+      console.warn('[studio] failed to delete previous logo', error);
+    }
+  }
+  return {
+    logoUrl: uploaded.downloadUrl,
+    logoStoragePath: uploaded.storagePath,
+  };
+}
+
+/** Clear the studio logo, falling back to the default avatar. */
+export async function removeStudioLogo({
+  studioId,
+  previousStoragePath,
+}: {
+  studioId: string;
+  previousStoragePath?: string | null;
+}): Promise<void> {
+  await updateDoc(studioDoc(studioId), {
+    logoUrl: null,
+    logoStoragePath: null,
+  });
+  if (previousStoragePath) {
+    try {
+      await deleteStudioLogo(previousStoragePath);
+    } catch (error) {
+      console.warn('[studio] failed to delete logo on removal', error);
+    }
+  }
+}
+
+/** Persist the studio's payment configuration. Overwrites the whole
+ *  `payment` map — callers should provide a fully formed object. */
+export async function updateStudioPayment(
+  studioId: string,
+  payment: StudioPaymentSettings,
+): Promise<void> {
+  await updateDoc(studioDoc(studioId), { payment });
 }
 
 export const STUDIO_COLLECTION = FIRESTORE_COLLECTIONS.studios;

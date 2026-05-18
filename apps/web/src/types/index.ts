@@ -54,11 +54,51 @@ export interface StudioSecuritySettings {
   antiAi?: boolean;
 }
 
+/**
+ * Brazilian payment configuration for the studio. Two methods are
+ * supported in the data model — only `pix` is wired in the UI today,
+ * with `automatic` reserved for future Pagar.me / Mercado Pago
+ * onboarding.
+ */
+export type PaymentMethod = 'automatic' | 'pix';
+
+export type PixKeyType = 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
+
+export interface StudioPixSettings {
+  keyType: PixKeyType;
+  /** CPF/CNPJ digits, email, E.164 phone, or UUID — depends on keyType. */
+  key: string;
+  /** Beneficiary name; capped at 25 chars by the Pix BR Code spec. */
+  beneficiaryName: string;
+  /** Beneficiary city; capped at 15 chars by the Pix BR Code spec. */
+  city: string;
+}
+
+export interface StudioAutomaticPaymentSettings {
+  provider?: 'pagarme' | 'mercadopago' | 'stripe';
+  accountId?: string;
+  status: 'pending' | 'connected' | 'error';
+}
+
+export interface StudioPaymentSettings {
+  method: PaymentMethod;
+  pix?: StudioPixSettings;
+  automatic?: StudioAutomaticPaymentSettings;
+}
+
 export interface StudioDoc {
   id: string;
   ownerId: string;
   name: string;
   slug: string;
+  /**
+   * Public storefront logo. When unset the storefront shell falls back
+   * to the default Camera icon avatar. `logoStoragePath` is the raw
+   * Storage object path (no token), kept around so we can delete the
+   * previous file when the photographer uploads a new one.
+   */
+  logoUrl?: string | null;
+  logoStoragePath?: string | null;
   /**
    * Whether automatic face detection / album suggestions run for this
    * studio. Optional for backwards compatibility — undefined is treated
@@ -67,6 +107,8 @@ export interface StudioDoc {
   faceClusteringEnabled?: boolean;
   /** Public storefront photo-protection toggles. */
   security?: StudioSecuritySettings;
+  /** Payment / payout configuration used by the future checkout. */
+  payment?: StudioPaymentSettings;
   createdAt: string;
 }
 

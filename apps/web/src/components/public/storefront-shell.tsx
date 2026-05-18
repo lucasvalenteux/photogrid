@@ -20,9 +20,18 @@ export function StorefrontShell({ studio, children }: StorefrontShellProps) {
             href={ROUTES.studio(studio.slug)}
             className="flex items-center gap-3 group"
           >
-            <span className="inline-flex size-9 items-center justify-center rounded-lg bg-ink text-white shadow-sm transition-transform group-hover:-rotate-3">
-              <Camera className="size-4" />
-            </span>
+            {studio.logoUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={studio.logoUrl}
+                alt={`Logo de ${studio.name}`}
+                className="size-9 shrink-0 rounded-lg object-cover shadow-sm transition-transform group-hover:-rotate-3"
+              />
+            ) : (
+              <span className="inline-flex size-9 items-center justify-center rounded-lg bg-ink text-white shadow-sm transition-transform group-hover:-rotate-3">
+                <Camera className="size-4" />
+              </span>
+            )}
             <div className="flex flex-col">
               <span className="text-sm font-semibold leading-tight text-ink">
                 {studio.name}
