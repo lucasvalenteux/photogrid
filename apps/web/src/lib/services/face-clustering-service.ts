@@ -114,6 +114,43 @@ export async function enqueuePhotoForClustering({
   }
 }
 
+export interface PublicFaceSearchMatch {
+  photoId: string;
+  galleryId: string;
+  score: number;
+}
+
+export async function searchPublicFaces({
+  studioId,
+  file,
+}: {
+  studioId: string;
+  file: File;
+}): Promise<PublicFaceSearchMatch[]> {
+  if (!ENABLED) {
+    throw new Error('A busca por face ainda não está disponível.');
+  }
+
+  const form = new FormData();
+  form.append('image', file);
+
+  const resp = await fetch(
+    apiUrl(`/api/v1/face-clustering/public/studios/${encodeURIComponent(studioId)}/search`),
+    {
+      method: 'POST',
+      body: form,
+    },
+  );
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`Falha na busca por face: ${resp.status} ${detail}`);
+  }
+
+  const payload = (await resp.json()) as { matches?: PublicFaceSearchMatch[] };
+  return payload.matches ?? [];
+}
+
 /**
  * Re-enqueue every photo in a gallery for face-clustering, with a small
  * concurrency cap so we don't open hundreds of parallel sockets. Used by

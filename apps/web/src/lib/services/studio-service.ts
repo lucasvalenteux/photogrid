@@ -117,6 +117,13 @@ export async function updateStudioFaceClustering(
   await updateDoc(studioDoc(studioId), { faceClusteringEnabled: enabled });
 }
 
+export async function updateStudioPublicFaceSearch(
+  studioId: string,
+  enabled: boolean,
+): Promise<void> {
+  await updateDoc(studioDoc(studioId), { publicFaceSearchEnabled: enabled });
+}
+
 /**
  * Update a single field inside the studio's `security` object. We patch
  * via dot-notation (`security.<key>`) so concurrent flips of different

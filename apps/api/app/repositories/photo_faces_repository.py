@@ -58,3 +58,9 @@ class PhotoFacesRepository:
         return [
             PhotoFaces.model_validate(doc.to_dict() or {}) for doc in query.stream()
         ]
+
+    def list_for_studio(self, studio_id: str) -> list[PhotoFaces]:
+        query = self._col.where("studioId", "==", studio_id)
+        return [
+            PhotoFaces.model_validate(doc.to_dict() or {}) for doc in query.stream()
+        ]

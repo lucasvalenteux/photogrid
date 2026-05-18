@@ -69,6 +69,11 @@ MIN_FACE_PIXELS = 48
 # shots from inflating cluster math.
 MAX_FACES_PER_PHOTO = 25
 
+# Public face search is visitor-facing, so prefer precision over aggressive
+# recall. The dashboard clustering threshold can be lower because the
+# photographer reviews suggestions before promoting albums.
+PUBLIC_SEARCH_THRESHOLD = 0.38
+
 
 # ---------------------------------------------------------------------------
 # Lazy singleton — InsightFace's FaceAnalysis is expensive to construct
@@ -280,6 +285,56 @@ class FaceClusteringService:
                 )
 
         return list(touched_clusters.values())
+
+    def search_studio_by_face(
+        self,
+        *,
+        studio_id: str,
+        image_bytes: bytes,
+        threshold: float = PUBLIC_SEARCH_THRESHOLD,
+    ) -> list[dict[str, str | float]]:
+        """Return photo ids in this studio that match the uploaded face.
+
+        The uploaded image may contain more than one face; we compare every
+        detected query embedding against every stored face embedding and keep
+        the best score per photo. Results are sorted by strongest match first.
+        """
+        query_faces = _extract_faces_from_bytes(image_bytes)
+        if not query_faces:
+            return []
+
+        query_embeddings = [
+            np.asarray(face.embedding, dtype=np.float32)
+            for face in query_faces
+            if face.embedding is not None
+        ]
+        if not query_embeddings:
+            return []
+
+        best_by_photo: dict[str, dict[str, str | float]] = {}
+        for photo_faces in self._photo_faces.list_for_studio(studio_id):
+            best_score = 0.0
+            for stored_face in photo_faces.faces:
+                if stored_face.embedding is None:
+                    continue
+                stored = np.asarray(stored_face.embedding, dtype=np.float32)
+                for query_embedding in query_embeddings:
+                    if stored.shape != query_embedding.shape:
+                        continue
+                    best_score = max(best_score, float(np.dot(stored, query_embedding)))
+
+            if best_score >= threshold:
+                best_by_photo[photo_faces.photo_id] = {
+                    "photoId": photo_faces.photo_id,
+                    "galleryId": photo_faces.gallery_id,
+                    "score": round(best_score, 4),
+                }
+
+        return sorted(
+            best_by_photo.values(),
+            key=lambda item: float(item["score"]),
+            reverse=True,
+        )
 
     # ---------------------------------------------------------- consolidation
 
@@ -493,6 +548,36 @@ def _download_image(url: str) -> np.ndarray:
     rgb = np.asarray(img, dtype=np.uint8)
     bgr = rgb[..., ::-1]  # RGB -> BGR
     return bgr
+
+
+def _image_from_bytes(data: bytes) -> np.ndarray:
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    rgb = np.asarray(img, dtype=np.uint8)
+    return rgb[..., ::-1]
+
+
+def _extract_faces_from_bytes(data: bytes) -> list[DetectedFace]:
+    image = _image_from_bytes(data)
+    faces = _detect_faces(image)
+    extracted: list[DetectedFace] = []
+    for face in faces[:MAX_FACES_PER_PHOTO]:
+        score = float(face.det_score)
+        if score < MIN_DETECTION_SCORE:
+            continue
+        bbox = [float(v) for v in face.bbox.tolist()]
+        face_w = bbox[2] - bbox[0]
+        face_h = bbox[3] - bbox[1]
+        if min(face_w, face_h) < MIN_FACE_PIXELS:
+            continue
+        extracted.append(
+            DetectedFace(
+                bbox=bbox,
+                score=score,
+                embedding=face.normed_embedding.astype(np.float32).tolist(),
+                cluster_id=None,
+            )
+        )
+    return extracted
 
 
 def _detect_faces(image_bgr: np.ndarray):

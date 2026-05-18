@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from google.cloud.firestore_v1 import Increment
 from pydantic import BaseModel, Field
 
@@ -89,6 +89,16 @@ class PromoteClusterBody(BaseModel):
     gallery_title: str = Field(min_length=1, alias="galleryTitle")
 
 
+class PublicFaceSearchMatch(BaseModel):
+    photo_id: str = Field(alias="photoId")
+    gallery_id: str = Field(alias="galleryId")
+    score: float
+
+
+class PublicFaceSearchResponse(BaseModel):
+    matches: list[PublicFaceSearchMatch]
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -123,9 +133,72 @@ def _next_suggested_album_title(
     return f"{gallery_title} #{n:02d}"
 
 
+def _public_face_search_enabled(studio_id: str) -> bool:
+    snap = get_firestore().collection("studios").document(studio_id).get()
+    if not snap.exists:
+        return False
+    data = snap.to_dict() or {}
+    return data.get("publicFaceSearchEnabled") is True
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/public/studios/{studio_id}/search",
+    response_model=PublicFaceSearchResponse,
+    summary="Public face search for a storefront",
+)
+async def public_face_search(
+    studio_id: str,
+    clustering: FaceClusteringServiceDep,
+    image: UploadFile = File(...),
+) -> PublicFaceSearchResponse:
+    """Compare an uploaded face photo against processed photos for a studio.
+
+    This endpoint intentionally has no Firebase auth dependency because it is
+    used by storefront visitors. The per-studio toggle gates access.
+    """
+    if not _public_face_search_enabled(studio_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Face search is not enabled for this studio.",
+        )
+
+    content_type = image.content_type or ""
+    if not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload an image file.",
+        )
+
+    data = await image.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Image is too large.",
+        )
+
+    try:
+        raw_matches = clustering.search_studio_by_face(
+            studio_id=studio_id,
+            image_bytes=data,
+        )
+    except Exception:
+        logger.exception("Public face search failed for studio %s", studio_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Face search failed.",
+        ) from None
+
+    return PublicFaceSearchResponse(
+        matches=[
+            PublicFaceSearchMatch.model_validate(match)
+            for match in raw_matches
+        ]
+    )
 
 
 @router.post(

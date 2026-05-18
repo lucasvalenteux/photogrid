@@ -30,11 +30,13 @@ import {
 import {
   updateStudioFaceClustering,
   updateStudioName,
+  updateStudioPublicFaceSearch,
   updateStudioSecurity,
   updateStudioStorefrontTheme,
 } from '@/lib/services/studio-service';
 import {
   effectiveFaceClusteringEnabled,
+  effectivePublicFaceSearchEnabled,
   effectiveStudioSecurity,
   type StorefrontThemeId,
 } from '@/types';
@@ -51,10 +53,18 @@ export default function SettingsPage() {
   const persistedEnabled = effectiveFaceClusteringEnabled(studio);
   const [faceEnabled, setFaceEnabled] = React.useState(persistedEnabled);
   const [savingFace, setSavingFace] = React.useState(false);
+  const persistedPublicFaceSearch = effectivePublicFaceSearchEnabled(studio);
+  const [publicFaceSearchEnabled, setPublicFaceSearchEnabled] = React.useState(
+    persistedPublicFaceSearch,
+  );
+  const [savingPublicFaceSearch, setSavingPublicFaceSearch] = React.useState(false);
 
   React.useEffect(() => {
     setFaceEnabled(persistedEnabled);
   }, [persistedEnabled]);
+  React.useEffect(() => {
+    setPublicFaceSearchEnabled(persistedPublicFaceSearch);
+  }, [persistedPublicFaceSearch]);
 
   const onToggleFace = async (next: boolean) => {
     if (!studio || savingFace) return;
@@ -73,6 +83,26 @@ export default function SettingsPage() {
       setFaceEnabled(!next);
     } finally {
       setSavingFace(false);
+    }
+  };
+
+  const onTogglePublicFaceSearch = async (next: boolean) => {
+    if (!studio || savingPublicFaceSearch) return;
+    setPublicFaceSearchEnabled(next);
+    setSavingPublicFaceSearch(true);
+    try {
+      await updateStudioPublicFaceSearch(studio.id, next);
+      toast.success(
+        next
+          ? 'Busca pública com detecção de face ativada.'
+          : 'Busca pública com detecção de face desativada.',
+      );
+    } catch (error) {
+      console.error('[settings] failed to update public face search flag', error);
+      toast.error('Não foi possível salvar. Tente novamente.');
+      setPublicFaceSearchEnabled(!next);
+    } finally {
+      setSavingPublicFaceSearch(false);
     }
   };
 
@@ -248,11 +278,11 @@ export default function SettingsPage() {
             sugestões de álbuns dentro de cada galeria.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="flex items-start justify-between gap-6">
+        <CardContent className="divide-y divide-border">
+          <div className="flex items-start justify-between gap-6 pb-4">
             <div className="space-y-1">
               <Label htmlFor="face-clustering" className="text-sm font-medium text-ink">
-                Ativar detecção de faces
+                Detectar faces na Galeria e recomendar albuns
               </Label>
               <p className="text-sm text-muted-foreground">
                 Quando desativado, novas fotos não são analisadas e nenhum
@@ -264,7 +294,25 @@ export default function SettingsPage() {
               checked={faceEnabled}
               onCheckedChange={onToggleFace}
               disabled={!studio || savingFace}
-              label="Ativar detecção de faces"
+              label="Detectar faces na Galeria e recomendar albuns"
+            />
+          </div>
+          <div className="flex items-start justify-between gap-6 pt-4">
+            <div className="space-y-1">
+              <Label htmlFor="public-face-search" className="text-sm font-medium text-ink">
+                Busca pública com detectação de face
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                Exibe na loja pública um campo para o cliente subir uma foto de
+                rosto e encontrar fotos e álbuns compatíveis.
+              </p>
+            </div>
+            <Switch
+              id="public-face-search"
+              checked={publicFaceSearchEnabled}
+              onCheckedChange={onTogglePublicFaceSearch}
+              disabled={!studio || savingPublicFaceSearch || !faceEnabled}
+              label="Busca pública com detectação de face"
             />
           </div>
         </CardContent>

@@ -147,6 +147,11 @@ export interface StudioDoc {
    * as `true` by `effectiveFaceClusteringEnabled`.
    */
   faceClusteringEnabled?: boolean;
+  /**
+   * Enables a public storefront search where a visitor uploads a face photo
+   * and receives public photos/albums that likely contain that person.
+   */
+  publicFaceSearchEnabled?: boolean;
   /** Public storefront photo-protection toggles. */
   security?: StudioSecuritySettings;
   /** Payment / payout configuration used by the future checkout. */
@@ -170,6 +175,12 @@ export function effectiveFaceClusteringEnabled(
 ): boolean {
   if (!studio) return true;
   return studio.faceClusteringEnabled !== false;
+}
+
+export function effectivePublicFaceSearchEnabled(
+  studio: Pick<StudioDoc, 'publicFaceSearchEnabled'> | null | undefined,
+): boolean {
+  return studio?.publicFaceSearchEnabled === true;
 }
 
 /**

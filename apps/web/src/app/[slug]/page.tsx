@@ -5,12 +5,17 @@ import { notFound } from 'next/navigation';
 import { APP_DOMAIN, APP_NAME, ROUTES } from '@photogrid/config';
 
 import { ProtectedPhoto } from '@/components/public/protected-photo';
+import { PublicFaceSearch } from '@/components/public/public-face-search';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPublicGalleries,
+  fetchPublicFaceSearchIndex,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
-import { effectiveStudioSecurity } from '@/types';
+import {
+  effectivePublicFaceSearchEnabled,
+  effectiveStudioSecurity,
+} from '@/types';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -53,7 +58,13 @@ export default async function PublicStudioPage({ params }: Props) {
   const studio = await fetchPublicStudioBySlug(slug);
   if (!studio) notFound();
 
-  const galleries = await fetchPublicGalleries(studio.id);
+  const publicFaceSearchEnabled = effectivePublicFaceSearchEnabled(studio);
+  const [galleries, faceSearchIndex] = await Promise.all([
+    fetchPublicGalleries(studio.id),
+    publicFaceSearchEnabled
+      ? fetchPublicFaceSearchIndex(studio.id)
+      : Promise.resolve(null),
+  ]);
   const security = effectiveStudioSecurity(studio);
   const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
 
@@ -68,6 +79,24 @@ export default async function PublicStudioPage({ params }: Props) {
             Escolha uma galeria para ver os álbuns publicados.
           </p>
         </header>
+
+        {publicFaceSearchEnabled && faceSearchIndex ? (
+          <div className="mb-10">
+            <PublicFaceSearch
+              studio={{
+                id: studio.id,
+                name: studio.name,
+                slug: studio.slug,
+                logoUrl: studio.logoUrl,
+              }}
+              studioUrl={studioUrl}
+              security={security}
+              photos={faceSearchIndex.photos}
+              albums={faceSearchIndex.albums}
+              galleries={faceSearchIndex.galleries}
+            />
+          </div>
+        ) : null}
 
         {galleries.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center text-sm text-muted-foreground">

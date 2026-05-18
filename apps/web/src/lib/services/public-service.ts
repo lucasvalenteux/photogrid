@@ -77,6 +77,12 @@ export interface PublicGalleryAccess {
   access: 'full' | 'albums-only';
 }
 
+export interface PublicFaceSearchIndex {
+  photos: PhotoDoc[];
+  albums: AlbumDoc[];
+  galleries: GalleryDoc[];
+}
+
 export async function fetchPublicStudioBySlug(slug: string): Promise<StudioDoc | null> {
   const slugSnap = await getDoc(slugDoc(slug.toLowerCase()));
   if (!slugSnap.exists()) return null;
@@ -232,4 +238,54 @@ export async function fetchPublicGalleryPhotos(galleryId: string): Promise<Photo
   );
   const snap = await getDocs(q);
   return snap.docs.map((d) => d.data());
+}
+
+export async function fetchPublicFaceSearchIndex(
+  studioId: string,
+): Promise<PublicFaceSearchIndex> {
+  const galleriesSnap = await getDocs(
+    query(galleriesCollection(), where('studioId', '==', studioId)),
+  );
+  const galleries = galleriesSnap.docs.map((d) => d.data());
+  const publicGalleryIds = new Set(
+    galleries
+      .filter((gallery) => effectiveVisibility(gallery.visibility) === 'public')
+      .map((gallery) => gallery.id),
+  );
+
+  const albumsSnap = await getDocs(
+    query(albumsCollection(), where('studioId', '==', studioId)),
+  );
+  const publicAlbums = albumsSnap.docs
+    .map((d) => d.data())
+    .filter((album) => effectiveVisibility(album.visibility) === 'public');
+
+  const allowedPhotoIds = new Set<string>();
+  for (const album of publicAlbums) {
+    album.photoIds.forEach((photoId) => allowedPhotoIds.add(photoId));
+  }
+
+  const photosSnap = await getDocs(
+    query(photosCollection(), where('studioId', '==', studioId)),
+  );
+  const photos = photosSnap.docs
+    .map((d) => d.data())
+    .filter(
+      (photo) =>
+        publicGalleryIds.has(photo.galleryId) || allowedPhotoIds.has(photo.id),
+    );
+
+  const galleryIdsWithSearchableContent = new Set([
+    ...photos.map((photo) => photo.galleryId),
+    ...publicAlbums.map((album) => album.galleryId),
+  ]);
+  const searchableGalleries = galleries.filter((gallery) =>
+    galleryIdsWithSearchableContent.has(gallery.id),
+  );
+
+  return {
+    photos,
+    albums: publicAlbums,
+    galleries: searchableGalleries,
+  };
 }
