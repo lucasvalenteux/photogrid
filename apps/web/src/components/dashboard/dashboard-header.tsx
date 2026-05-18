@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { ExternalLink, LogOut } from 'lucide-react';
+import { ExternalLink, LogOut, Menu } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ROUTES } from '@photogrid/config';
@@ -17,6 +17,11 @@ import {
 import { signOut } from '@/lib/firebase/auth';
 import { useAuth } from '@/lib/hooks/use-auth';
 
+interface DashboardHeaderProps {
+  /** Open the mobile sidebar drawer (only used below the lg breakpoint). */
+  onOpenMobileMenu: () => void;
+}
+
 function initialsFromName(name: string | null | undefined, email: string | null | undefined) {
   const source = (name && name.trim()) || email || '';
   if (!source) return '?';
@@ -26,7 +31,7 @@ function initialsFromName(name: string | null | undefined, email: string | null 
   return (first + second || first || '?').toUpperCase();
 }
 
-export function DashboardHeader() {
+export function DashboardHeader({ onOpenMobileMenu }: DashboardHeaderProps) {
   const router = useRouter();
   const { studio, user } = useAuth();
 
@@ -41,8 +46,16 @@ export function DashboardHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-4 backdrop-blur-md sm:px-6">
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onOpenMobileMenu}
+          aria-label="Abrir menu"
+          className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+        >
+          <Menu className="size-4" />
+        </button>
         <div className="flex flex-col">
           <span className="text-xs font-medium text-muted-foreground">Estúdio</span>
           <span className="text-sm font-semibold leading-none text-ink">
