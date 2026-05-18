@@ -10,7 +10,11 @@ import {
 import { deleteStudioLogo, uploadStudioLogo } from '@/lib/firebase/storage';
 import { slugify, validateSlug } from '@/lib/slug';
 import { FIRESTORE_COLLECTIONS } from '@photogrid/config';
-import type { StudioPaymentSettings, StudioPricingSettings } from '@/types';
+import type {
+  StorefrontThemeId,
+  StudioPaymentSettings,
+  StudioPricingSettings,
+} from '@/types';
 
 export interface CreateStudioInput {
   ownerId: string;
@@ -221,6 +225,14 @@ export async function updateStudioPricing(
   pricing: StudioPricingSettings,
 ): Promise<void> {
   await updateDoc(studioDoc(studioId), { pricing });
+}
+
+/** Update the visual background preset used by the public storefront. */
+export async function updateStudioStorefrontTheme(
+  studioId: string,
+  theme: StorefrontThemeId,
+): Promise<void> {
+  await updateDoc(studioDoc(studioId), { storefrontTheme: theme });
 }
 
 export const STUDIO_COLLECTION = FIRESTORE_COLLECTIONS.studios;

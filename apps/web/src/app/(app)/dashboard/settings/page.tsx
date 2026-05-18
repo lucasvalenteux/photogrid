@@ -14,6 +14,7 @@ import {
   Input,
   Label,
   Switch,
+  cn,
 } from '@photogrid/ui';
 
 import { PaymentSettingsCard } from '@/components/dashboard/payment-settings-card';
@@ -22,13 +23,20 @@ import { PricingSettingsCard } from '@/components/dashboard/pricing-settings-car
 import { StudioLogoUploader } from '@/components/dashboard/studio-logo-uploader';
 import { useAuth } from '@/lib/hooks/use-auth';
 import {
+  STOREFRONT_THEME_PRESETS,
+  getStorefrontThemePreset,
+  type StorefrontThemePreset,
+} from '@/lib/storefront-themes';
+import {
   updateStudioFaceClustering,
   updateStudioName,
   updateStudioSecurity,
+  updateStudioStorefrontTheme,
 } from '@/lib/services/studio-service';
 import {
   effectiveFaceClusteringEnabled,
   effectiveStudioSecurity,
+  type StorefrontThemeId,
 } from '@/types';
 
 type SecurityKey = 'dimPhotos' | 'watermark' | 'disableRightClick' | 'antiAi';
@@ -137,6 +145,30 @@ export default function SettingsPage() {
     }
   };
 
+  const persistedTheme = getStorefrontThemePreset(studio?.storefrontTheme).id;
+  const [theme, setTheme] = React.useState<StorefrontThemeId>(persistedTheme);
+  const [savingTheme, setSavingTheme] = React.useState(false);
+  React.useEffect(() => {
+    setTheme(persistedTheme);
+  }, [persistedTheme]);
+
+  const onChangeTheme = async (next: StorefrontThemeId) => {
+    if (!studio || savingTheme || next === theme) return;
+    const previous = theme;
+    setTheme(next);
+    setSavingTheme(true);
+    try {
+      await updateStudioStorefrontTheme(studio.id, next);
+      toast.success('Tema da loja atualizado.');
+    } catch (error) {
+      console.error('[settings] failed to update storefront theme', error);
+      toast.error('Não foi possível salvar o tema.');
+      setTheme(previous);
+    } finally {
+      setSavingTheme(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-3xl space-y-8">
       <header>
@@ -182,6 +214,12 @@ export default function SettingsPage() {
               disabled
             />
           </div>
+
+          <StorefrontThemePicker
+            selected={theme}
+            disabled={!studio || savingTheme}
+            onChange={onChangeTheme}
+          />
         </CardContent>
       </Card>
 
@@ -288,6 +326,79 @@ export default function SettingsPage() {
 
       <PlansCard />
     </div>
+  );
+}
+
+interface StorefrontThemePickerProps {
+  selected: StorefrontThemeId;
+  disabled?: boolean;
+  onChange: (theme: StorefrontThemeId) => void;
+}
+
+function StorefrontThemePicker({
+  selected,
+  disabled,
+  onChange,
+}: StorefrontThemePickerProps) {
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label className="text-sm font-medium text-ink">Fundo da loja pública</Label>
+        <p className="text-sm text-muted-foreground">
+          Escolha uma cor ou degradê para personalizar o fundo da sua loja.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {STOREFRONT_THEME_PRESETS.map((preset) => (
+          <ThemeOption
+            key={preset.id}
+            preset={preset}
+            selected={selected === preset.id}
+            disabled={disabled}
+            onSelect={() => onChange(preset.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThemeOption({
+  preset,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  preset: StorefrontThemePreset;
+  selected: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={disabled}
+      aria-pressed={selected}
+      className={cn(
+        'group rounded-xl border bg-card p-2 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
+        selected ? 'border-brand-500 ring-2 ring-brand-100' : 'border-border',
+      )}
+    >
+      <span
+        className={cn(
+          'block h-16 rounded-lg border border-black/5 shadow-inner',
+          preset.swatchClassName,
+        )}
+        aria-hidden="true"
+      />
+      <span className="mt-2 block text-xs font-medium text-foreground">
+        {preset.label}
+      </span>
+      <span className="block text-[11px] text-muted-foreground">
+        {preset.description}
+      </span>
+    </button>
   );
 }
 

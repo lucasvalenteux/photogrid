@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { Camera, ShoppingBag } from 'lucide-react';
 
 import { APP_NAME, ROUTES } from '@photogrid/config';
-import { Logo } from '@photogrid/ui';
+import { Logo, cn } from '@photogrid/ui';
 
 import { CartProvider } from '@/lib/cart/cart-context';
+import { getStorefrontThemePreset } from '@/lib/storefront-themes';
 import type { StudioDoc } from '@/types';
 
 import { CartButton } from './cart-button';
@@ -16,10 +17,17 @@ interface StorefrontShellProps {
 }
 
 export function StorefrontShell({ studio, children }: StorefrontShellProps) {
+  const theme = getStorefrontThemePreset(studio.storefrontTheme);
+
   return (
     <CartProvider studioId={studio.id}>
-      <div className="flex min-h-dvh flex-col bg-background">
-        <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
+      <div className={cn('flex min-h-dvh flex-col', theme.backgroundClassName)}>
+        <header
+          className={cn(
+            'sticky top-0 z-30 border-b backdrop-blur-md',
+            theme.headerClassName,
+          )}
+        >
           <div className="container-app flex h-16 items-center justify-between gap-3">
             <Link
               href={ROUTES.studio(studio.slug)}
@@ -71,7 +79,7 @@ export function StorefrontShell({ studio, children }: StorefrontShellProps) {
         <main className="flex-1 pb-20 sm:pb-24">{children}</main>
         <FloatingCartBar slug={studio.slug} />
 
-        <footer className="border-t border-border bg-card">
+        <footer className={cn('border-t', theme.footerClassName)}>
           <div className="container-app flex flex-col items-center justify-between gap-3 py-6 text-xs text-muted-foreground md:flex-row">
             <span>
               © {new Date().getFullYear()} {studio.name}

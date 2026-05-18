@@ -109,6 +109,18 @@ export interface GalleryPricing {
   pricePerAlbumCents?: number;
 }
 
+export type StorefrontThemeId =
+  | 'default'
+  | 'paper'
+  | 'graphite'
+  | 'rose'
+  | 'sand'
+  | 'ocean'
+  | 'aurora'
+  | 'sunset'
+  | 'lavender'
+  | 'forest';
+
 export interface StudioDoc {
   id: string;
   ownerId: string;
@@ -134,6 +146,8 @@ export interface StudioDoc {
   payment?: StudioPaymentSettings;
   /** Default monetary values for items sold across the storefront. */
   pricing?: StudioPricingSettings;
+  /** Background theme applied to the public storefront. */
+  storefrontTheme?: StorefrontThemeId;
   createdAt: string;
 }
 
