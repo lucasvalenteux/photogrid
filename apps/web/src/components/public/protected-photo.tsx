@@ -150,38 +150,68 @@ export function ProtectedPhoto({
 /**
  * Tiled diagonal watermark with the studio name.
  *
- * Design goals:
- *   - The studio name has to be *readable*. The earlier 5×7 grid packed
- *     so many copies into a typical landscape thumbnail that they
- *     overlapped each other after rotation and the text turned into
- *     visual noise.
- *   - Still cover enough of the photo that a casual screenshot won't
- *     come out clean.
+ * Earlier versions used a CSS grid of `<span>` elements. Cells were
+ * narrower than the rendered text, so anything past the first few
+ * characters of the studio name was clipped by the cell boundary
+ * (especially after rotation). The fix is to stop tiling at the DOM
+ * level and instead render a single SVG tile that contains the *full*
+ * studio name, then let CSS `background-repeat` lay it out.
  *
- * The 3×4 layout below gives each repetition real breathing room while
- * still placing a watermark across the focal area of any aspect ratio
- * we ship (square thumbnails, 5/4 covers, portrait phone shots, etc.).
+ * Properties of this approach:
+ *   - Each repetition is guaranteed to show the complete name — the
+ *     tile width scales with the string length, so long studio names
+ *     (e.g. "DB Studio Photography") get a wider tile instead of being
+ *     truncated.
+ *   - Tile height controls vertical density. With `tileHeight = 50`
+ *     we get roughly twice as many horizontal bands as the old layout
+ *     across a square thumbnail.
+ *   - The `paint-order='stroke'` trick draws a soft dark outline under
+ *     the white text so it's legible on both bright skin tones and
+ *     dark fabric — no `text-shadow` needed.
  */
 function WatermarkOverlay({ studioName }: { studioName: string }) {
-  const cells = Array.from({ length: 12 });
+  const label = `© ${studioName}`.toUpperCase();
+  // Width grows with the name so the full text always fits inside a
+  // single tile. The +4 keeps a comfortable margin around the text so
+  // adjacent tiles don't visually butt up against each other.
+  const tileWidth = Math.max(320, (label.length + 4) * 13);
+  const tileHeight = 50;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${tileWidth}' height='${tileHeight}'>
+    <text x='50%' y='50%' text-anchor='middle' dominant-baseline='middle'
+          font-family='system-ui, -apple-system, sans-serif'
+          font-size='14' font-weight='600' letter-spacing='2.5'
+          fill='white' fill-opacity='0.7'
+          stroke='black' stroke-opacity='0.55' stroke-width='0.6'
+          paint-order='stroke'>${escapeXml(label)}</text>
+  </svg>`;
+  const backgroundImage = `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}")`;
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 -rotate-[20deg] scale-125"
-    >
-      <div className="grid h-full w-full grid-cols-3 grid-rows-4 place-items-center gap-0">
-        {cells.map((_, index) => (
-          <span
-            key={index}
-            className="select-none whitespace-nowrap text-xs font-semibold uppercase tracking-[0.22em] text-white/70 [text-shadow:0_1px_2px_rgba(0,0,0,0.55)] sm:text-sm"
-          >
-            © {studioName}
-          </span>
-        ))}
-      </div>
-    </div>
+      className="pointer-events-none absolute inset-0 -rotate-[20deg] scale-150"
+      style={{
+        backgroundImage,
+        backgroundRepeat: 'repeat',
+        backgroundSize: `${tileWidth}px ${tileHeight}px`,
+      }}
+    />
   );
 }
+
+// Minimal XML escaping for studio names that contain `<`, `>`, `&`,
+// `'`, or `"`. Without this, an apostrophe in the studio name would
+// terminate the SVG attribute and break the watermark entirely.
+function escapeXml(value: string): string {
+  return value.replace(/[<>&'"]/g, (char) => XML_ENTITIES[char] ?? char);
+}
+
+const XML_ENTITIES: Record<string, string> = {
+  '<': '&lt;',
+  '>': '&gt;',
+  '&': '&amp;',
+  "'": '&#39;',
+  '"': '&quot;',
+};
 
 /**
  * Procedural noise overlay used by the anti-AI mode.
