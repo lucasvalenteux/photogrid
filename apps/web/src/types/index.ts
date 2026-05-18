@@ -351,3 +351,13 @@ export interface OrderDoc {
   /** Set when status transitions to `paid`. */
   paidAt: string | null;
 }
+
+export interface ClientDoc {
+  id: string;
+  studioId: string;
+  name: string;
+  /** Customer phone in E.164 (e.g. `+5511999999999`). */
+  phone: string;
+  createdAt: string;
+  updatedAt: string;
+}

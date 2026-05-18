@@ -31,6 +31,16 @@ export interface CreateCartOrderInput {
   items: OrderItem[];
 }
 
+export interface CreateManualPendingOrderInput {
+  studioId: string;
+  studioSlug: string;
+  galleryId: string;
+  galleryTitle: string;
+  customerName: string;
+  customerPhone: string;
+  items: OrderItem[];
+}
+
 /**
  * Persist an abandoned cart (status `cart`) the first time a visitor
  * gives us their phone. Subsequent add-to-cart actions update the same
@@ -67,6 +77,38 @@ export async function createCartOrder(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  return ref.id;
+}
+
+/** Owner-side manual order, created directly from /dashboard/orders. */
+export async function createManualPendingOrder(
+  input: CreateManualPendingOrderInput,
+): Promise<string> {
+  const ref = doc(ordersCollection());
+  const now = new Date().toISOString();
+  const payload: OrderDoc = {
+    id: ref.id,
+    studioId: input.studioId,
+    studioSlug: input.studioSlug,
+    galleryId: input.galleryId,
+    galleryTitle: input.galleryTitle,
+    customerPhone: input.customerPhone,
+    customerName: input.customerName,
+    items: input.items,
+    totalCents: input.items.reduce((sum, item) => sum + item.priceCents, 0),
+    status: 'pending',
+    accessToken: null,
+    createdAt: now,
+    updatedAt: now,
+    paidAt: null,
+  };
+
+  await setDoc(ref, {
+    ...payload,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+
   return ref.id;
 }
 

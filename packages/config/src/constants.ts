@@ -43,6 +43,8 @@ export const FIRESTORE_COLLECTIONS = {
    * `firestore.rules` for the full policy.
    */
   orders: 'orders',
+  /** Manual client records created by the studio owner. */
+  clients: 'clients',
 } as const;
 
 export type FirestoreCollection =

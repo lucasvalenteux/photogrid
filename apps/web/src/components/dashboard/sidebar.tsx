@@ -8,6 +8,9 @@ import { X } from 'lucide-react';
 import { ROUTES } from '@photogrid/config';
 import { cn, Logo } from '@photogrid/ui';
 
+import { useAuth } from '@/lib/hooks/use-auth';
+import { subscribeToStudioOrders } from '@/lib/services/order-service';
+
 import { SIDEBAR_NAV } from './sidebar-nav';
 
 interface SidebarProps {
@@ -34,6 +37,28 @@ interface SidebarProps {
  */
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const { studio } = useAuth();
+  const [pendingOrdersCount, setPendingOrdersCount] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!studio) {
+      setPendingOrdersCount(0);
+      return;
+    }
+    const unsubscribe = subscribeToStudioOrders(
+      studio.id,
+      (orders) => {
+        setPendingOrdersCount(
+          orders.filter((order) => order.status === 'pending').length,
+        );
+      },
+      (error) => {
+        console.error('[sidebar] orders badge subscription error', error);
+        setPendingOrdersCount(0);
+      },
+    );
+    return () => unsubscribe();
+  }, [studio]);
 
   // Lock body scroll while the drawer is open. Without this, the page
   // behind the backdrop can be scrolled on touch devices and the
@@ -86,7 +111,15 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
                   : 'text-muted-foreground group-hover:text-ink',
               )}
             />
-            {item.label}
+            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+            {item.href === ROUTES.orders && pendingOrdersCount > 0 ? (
+              <span
+                aria-label={`${pendingOrdersCount} pedidos aguardando confirmação`}
+                className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-brand-500 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white"
+              >
+                {pendingOrdersCount > 99 ? '99+' : pendingOrdersCount}
+              </span>
+            ) : null}
           </Link>
         );
       })}

@@ -8,23 +8,48 @@ import {
   ExternalLink,
   Loader2,
   MessageCircle,
+  Plus,
   ShoppingBag,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ROUTES } from '@photogrid/config';
-import { Badge, Button, cn } from '@photogrid/ui';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  Label,
+  cn,
+} from '@photogrid/ui';
 
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { formatCents } from '@/lib/format/currency';
 import { displayBrPhone, whatsappLink } from '@/lib/format/phone';
+import { subscribeToAlbums } from '@/lib/services/album-service';
+import { subscribeToStudioClients } from '@/lib/services/client-service';
+import { subscribeToGalleries } from '@/lib/services/gallery-service';
 import {
+  createManualPendingOrder,
   generateAccessToken,
   markOrderAsPaid,
   subscribeToStudioOrders,
 } from '@/lib/services/order-service';
+import { subscribeToGalleryPhotos } from '@/lib/services/photo-service';
 import { useAuth } from '@/lib/hooks/use-auth';
-import type { OrderDoc } from '@/types';
+import {
+  resolveGalleryPrices,
+  type AlbumDoc,
+  type ClientDoc,
+  type GalleryDoc,
+  type OrderDoc,
+  type PhotoDoc,
+  type StudioDoc,
+} from '@/types';
 
 function partition(orders: OrderDoc[]): {
   pending: OrderDoc[];
@@ -45,13 +70,16 @@ function partition(orders: OrderDoc[]): {
 export default function OrdersPage() {
   const { studio } = useAuth();
   const [orders, setOrders] = React.useState<OrderDoc[]>([]);
+  const [manualClients, setManualClients] = React.useState<ClientDoc[]>([]);
+  const [galleries, setGalleries] = React.useState<GalleryDoc[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [markingId, setMarkingId] = React.useState<string | null>(null);
+  const [createOpen, setCreateOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!studio) return;
     setLoading(true);
-    const unsubscribe = subscribeToStudioOrders(
+    const unsubOrders = subscribeToStudioOrders(
       studio.id,
       (next) => {
         setOrders(next);
@@ -62,12 +90,30 @@ export default function OrdersPage() {
         setLoading(false);
       },
     );
-    return () => unsubscribe();
+    const unsubClients = subscribeToStudioClients(
+      studio.id,
+      setManualClients,
+      (error) => console.error('[orders] clients subscription error', error),
+    );
+    const unsubGalleries = subscribeToGalleries(
+      studio.id,
+      setGalleries,
+      (error) => console.error('[orders] galleries subscription error', error),
+    );
+    return () => {
+      unsubOrders();
+      unsubClients();
+      unsubGalleries();
+    };
   }, [studio]);
 
   const { pending, paid, abandoned } = React.useMemo(
     () => partition(orders),
     [orders],
+  );
+  const clients = React.useMemo(
+    () => buildClientOptions(manualClients, orders),
+    [manualClients, orders],
   );
 
   const onMarkPaid = async (order: OrderDoc) => {
@@ -88,9 +134,7 @@ export default function OrdersPage() {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-5xl space-y-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Pedidos
-        </h1>
+        <PageHeader onCreate={() => setCreateOpen(true)} />
         <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">
           Carregando…
         </div>
@@ -101,29 +145,30 @@ export default function OrdersPage() {
   if (orders.length === 0) {
     return (
       <div className="mx-auto w-full max-w-5xl space-y-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Pedidos
-        </h1>
+        <PageHeader onCreate={() => setCreateOpen(true)} />
         <EmptyState
           icon={ShoppingBag}
           title="Você ainda não recebeu pedidos."
           description="Quando alguém comprar suas fotos, o pedido aparecerá aqui."
+          actionLabel="Criar pedido"
+          onAction={() => setCreateOpen(true)}
         />
+        {studio ? (
+          <CreateOrderDialog
+            open={createOpen}
+            onOpenChange={setCreateOpen}
+            studio={studio}
+            clients={clients}
+            galleries={galleries}
+          />
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-10">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-          Pedidos
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Confirme pagamentos via Pix manualmente — ao marcar como pago,
-          o cliente recebe um link único para baixar os arquivos.
-        </p>
-      </header>
+      <PageHeader onCreate={() => setCreateOpen(true)} />
 
       <OrdersTable
         title="Aguardando confirmação"
@@ -179,7 +224,64 @@ export default function OrdersPage() {
           <WhatsappCta phone={order.customerPhone} order={order} />
         )}
       />
+      {studio ? (
+        <CreateOrderDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          studio={studio}
+          clients={clients}
+          galleries={galleries}
+        />
+      ) : null}
     </div>
+  );
+}
+
+interface SelectableClient {
+  name: string;
+  phone: string;
+}
+
+function buildClientOptions(
+  manualClients: ClientDoc[],
+  orders: OrderDoc[],
+): SelectableClient[] {
+  const byPhone = new Map<string, SelectableClient>();
+  for (const client of manualClients) {
+    byPhone.set(client.phone, { name: client.name, phone: client.phone });
+  }
+  for (const order of orders) {
+    if (!order.customerName) continue;
+    const existing = byPhone.get(order.customerPhone);
+    if (!existing || order.customerName.length > existing.name.length) {
+      byPhone.set(order.customerPhone, {
+        name: order.customerName,
+        phone: order.customerPhone,
+      });
+    }
+  }
+  return Array.from(byPhone.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, 'pt-BR'),
+  );
+}
+
+function PageHeader({ onCreate }: { onCreate: () => void }) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+          Pedidos
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Crie pedidos manualmente ou confirme pagamentos via Pix para liberar
+          os arquivos.
+        </p>
+      </div>
+      <Button type="button" size="sm" onClick={onCreate}>
+        <Plus className="size-4" />
+        Novo pedido
+      </Button>
+    </header>
   );
 }
 
@@ -302,6 +404,248 @@ function StatusPill({ status }: { status: OrderDoc['status'] }) {
   }
   return <Badge variant="outline">Carrinho</Badge>;
 }
+
+function CreateOrderDialog({
+  open,
+  onOpenChange,
+  studio,
+  clients,
+  galleries,
+}: {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  studio: StudioDoc;
+  clients: SelectableClient[];
+  galleries: GalleryDoc[];
+}) {
+  const [clientPhone, setClientPhone] = React.useState('');
+  const [galleryId, setGalleryId] = React.useState('');
+  const [itemType, setItemType] = React.useState<'album' | 'photo'>('album');
+  const [itemId, setItemId] = React.useState('');
+  const [albums, setAlbums] = React.useState<AlbumDoc[]>([]);
+  const [photos, setPhotos] = React.useState<PhotoDoc[]>([]);
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setClientPhone(clients[0]?.phone ?? '');
+    setGalleryId(galleries[0]?.id ?? '');
+    setItemType('album');
+    setItemId('');
+    setSaving(false);
+  }, [clients, galleries, open]);
+
+  React.useEffect(() => {
+    if (!open || !galleryId) {
+      setAlbums([]);
+      setPhotos([]);
+      return;
+    }
+    const unsubAlbums = subscribeToAlbums(
+      galleryId,
+      setAlbums,
+      (error) => console.error('[orders] albums subscription error', error),
+    );
+    const unsubPhotos = subscribeToGalleryPhotos(
+      galleryId,
+      setPhotos,
+      (error) => console.error('[orders] photos subscription error', error),
+    );
+    return () => {
+      unsubAlbums();
+      unsubPhotos();
+    };
+  }, [galleryId, open]);
+
+  React.useEffect(() => {
+    setItemId('');
+  }, [galleryId, itemType]);
+
+  const gallery = galleries.find((g) => g.id === galleryId) ?? null;
+  const client = clients.find((c) => c.phone === clientPhone) ?? null;
+  const prices = resolveGalleryPrices(gallery, studio);
+  const itemOptions = itemType === 'album' ? albums : photos;
+  const selectedAlbum =
+    itemType === 'album' ? albums.find((album) => album.id === itemId) : null;
+  const selectedPhoto =
+    itemType === 'photo' ? photos.find((photo) => photo.id === itemId) : null;
+  const currentPrice =
+    itemType === 'album'
+      ? prices.pricePerAlbumCents
+      : prices.pricePerPhotoCents;
+
+  const canSubmit =
+    Boolean(client && gallery && itemId) && itemOptions.length > 0 && !saving;
+
+  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !gallery || !canSubmit) return;
+
+    const item =
+      itemType === 'album' && selectedAlbum
+        ? {
+            type: 'album' as const,
+            itemId: selectedAlbum.id,
+            title: selectedAlbum.title,
+            thumbnailUrl: selectedAlbum.coverPhotoUrl ?? null,
+            photoCount: selectedAlbum.photoIds.length,
+            priceCents: currentPrice,
+          }
+        : itemType === 'photo' && selectedPhoto
+          ? {
+              type: 'photo' as const,
+              itemId: selectedPhoto.id,
+              title: selectedPhoto.fileName || 'Foto',
+              thumbnailUrl: selectedPhoto.thumbnailUrl ?? selectedPhoto.imageUrl,
+              photoCount: null,
+              priceCents: currentPrice,
+            }
+          : null;
+    if (!item) return;
+
+    setSaving(true);
+    try {
+      await createManualPendingOrder({
+        studioId: studio.id,
+        studioSlug: studio.slug,
+        galleryId: gallery.id,
+        galleryTitle: gallery.title,
+        customerName: client.name,
+        customerPhone: client.phone,
+        items: [item],
+      });
+      toast.success('Pedido criado aguardando confirmação.');
+      onOpenChange(false);
+    } catch (error) {
+      console.error('[orders] manual create failed', error);
+      toast.error('Não foi possível criar o pedido.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Novo pedido manual</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <Field>
+            <Label htmlFor="manual-order-client">Cliente</Label>
+            <select
+              id="manual-order-client"
+              value={clientPhone}
+              onChange={(event) => setClientPhone(event.target.value)}
+              className={selectClassName}
+              disabled={saving || clients.length === 0}
+              required
+            >
+              {clients.length === 0 ? (
+                <option value="">Crie um cliente primeiro</option>
+              ) : (
+                clients.map((c) => (
+                  <option key={c.phone} value={c.phone}>
+                    {c.name} · {displayBrPhone(c.phone)}
+                  </option>
+                ))
+              )}
+            </select>
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <Label htmlFor="manual-order-gallery">Galeria</Label>
+              <select
+                id="manual-order-gallery"
+                value={galleryId}
+                onChange={(event) => setGalleryId(event.target.value)}
+                className={selectClassName}
+                disabled={saving || galleries.length === 0}
+                required
+              >
+                {galleries.length === 0 ? (
+                  <option value="">Nenhuma galeria</option>
+                ) : (
+                  galleries.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.title}
+                    </option>
+                  ))
+                )}
+              </select>
+            </Field>
+
+            <Field>
+              <Label htmlFor="manual-order-type">Tipo</Label>
+              <select
+                id="manual-order-type"
+                value={itemType}
+                onChange={(event) =>
+                  setItemType(event.target.value === 'photo' ? 'photo' : 'album')
+                }
+                className={selectClassName}
+                disabled={saving}
+              >
+                <option value="album">Álbum completo</option>
+                <option value="photo">Foto avulsa</option>
+              </select>
+            </Field>
+          </div>
+
+          <Field>
+            <Label htmlFor="manual-order-item">
+              {itemType === 'album' ? 'Álbum comprado' : 'Foto comprada'}
+            </Label>
+            <select
+              id="manual-order-item"
+              value={itemId}
+              onChange={(event) => setItemId(event.target.value)}
+              className={selectClassName}
+              disabled={saving || itemOptions.length === 0}
+              required
+            >
+              <option value="">
+                {itemOptions.length === 0
+                  ? itemType === 'album'
+                    ? 'Nenhum álbum nesta galeria'
+                    : 'Nenhuma foto nesta galeria'
+                  : 'Selecione'}
+              </option>
+              {itemOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {'title' in item ? item.title : item.fileName}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Valor aplicado: {formatCents(currentPrice)}. Para ajustar, altere
+              os valores da galeria ou o padrão em configurações.
+            </p>
+          </Field>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="ghost" disabled={saving}>
+                Cancelar
+              </Button>
+            </DialogClose>
+            <Button type="submit" loading={saving} disabled={!canSubmit}>
+              Criar pedido
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-1.5">{children}</div>;
+}
+
+const selectClassName =
+  'flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
 
 function WhatsappCta({
   phone,

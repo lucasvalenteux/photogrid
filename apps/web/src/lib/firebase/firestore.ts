@@ -9,6 +9,7 @@ import {
 
 import type {
   AlbumDoc,
+  ClientDoc,
   FaceClusterDoc,
   GalleryDoc,
   OrderDoc,
@@ -37,6 +38,8 @@ export const faceClustersCollection = () =>
   typedCollection<FaceClusterDoc>(FIRESTORE_COLLECTIONS.faceClusters);
 export const ordersCollection = () =>
   typedCollection<OrderDoc>(FIRESTORE_COLLECTIONS.orders);
+export const clientsCollection = () =>
+  typedCollection<ClientDoc>(FIRESTORE_COLLECTIONS.clients);
 
 export const userDoc = (id: string) => typedDoc<UserDoc>(FIRESTORE_COLLECTIONS.users, id);
 export const studioDoc = (id: string) => typedDoc<StudioDoc>(FIRESTORE_COLLECTIONS.studios, id);
@@ -49,3 +52,4 @@ export const photoDoc = (id: string) => typedDoc<PhotoDoc>(FIRESTORE_COLLECTIONS
 export const faceClusterDoc = (id: string) =>
   typedDoc<FaceClusterDoc>(FIRESTORE_COLLECTIONS.faceClusters, id);
 export const orderDoc = (id: string) => typedDoc<OrderDoc>(FIRESTORE_COLLECTIONS.orders, id);
+export const clientDoc = (id: string) => typedDoc<ClientDoc>(FIRESTORE_COLLECTIONS.clients, id);
