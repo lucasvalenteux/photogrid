@@ -47,15 +47,25 @@ function errorCode(error: unknown): string {
  *     surface is precise — "Senha incorreta" stays "Senha incorreta",
  *     and "Senha muito fraca" only appears on the create path.
  *
- * Race-condition note: between step 1 and the create call on step 2 a
- * different tab/device might register the same email. We detect
- * `auth/email-already-in-use`, flip the local status to "exists" and
- * reset the password field so the user types the right one.
+ *     If the lookup said "new" but Firebase rejects the create with
+ *     `email-already-in-use` (lookup race, false negative, account
+ *     created in another tab…) we transparently sign in with the
+ *     password the user already typed. The visible recovery before
+ *     this fix looked like the form "going back to the start" — even
+ *     though the form really only swapped copy + cleared the password
+ *     box, users perceived it as a failure.
+ *
+ * Form lifecycle: the underlying `<form>` element stays mounted across
+ * step transitions; only the inner contents are swapped through
+ * `AnimatePresence`. This avoids any chance of submit handlers or
+ * focus state racing the React unmount/remount cycle of the form.
  *
  * After any successful auth we navigate to `/dashboard`. The
  * `<AuthGate requireStudio>` wrapping the dashboard layout still owns
  * the brand-new-user → onboarding redirect, which means the routing
- * logic lives in a single place.
+ * logic lives in a single place. A `redirecting` flag locks the form
+ * during navigation so it can't be re-submitted while the page is on
+ * its way out.
  */
 export function LoginForm() {
   const router = useRouter();
@@ -65,33 +75,30 @@ export function LoginForm() {
     React.useState<EmailLookupResult>('unknown');
   const [password, setPassword] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
-  const [routerPending, startTransition] = React.useTransition();
+  const [redirecting, setRedirecting] = React.useState(false);
 
   const passwordRef = React.useRef<HTMLInputElement>(null);
+  const emailRef = React.useRef<HTMLInputElement>(null);
 
-  // Focus the password field as soon as it appears.
+  // Focus the right field on every step transition. Refs are used
+  // (instead of `autoFocus`) so we don't fight `AnimatePresence`'s
+  // exit/enter timing.
   React.useEffect(() => {
-    if (step === 'password') {
-      passwordRef.current?.focus();
-    }
+    const target = step === 'password' ? passwordRef.current : emailRef.current;
+    target?.focus();
   }, [step]);
 
-  const loading = submitting || routerPending;
+  const loading = submitting || redirecting;
 
-  const onEmailSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (loading) return;
+  const navigateToDashboard = React.useCallback(() => {
+    setRedirecting(true);
+    router.replace(ROUTES.dashboard);
+  }, [router]);
 
-    const trimmed = email.trim();
-    if (!EMAIL_REGEX.test(trimmed)) {
-      toast.error('Informe um email válido.');
-      return;
-    }
-
-    setEmail(trimmed);
+  const goToPasswordStep = async (trimmedEmail: string) => {
     setSubmitting(true);
     try {
-      const status = await lookupEmailExists(trimmed);
+      const status = await lookupEmailExists(trimmedEmail);
       setEmailStatus(status);
       setStep('password');
     } finally {
@@ -99,15 +106,7 @@ export function LoginForm() {
     }
   };
 
-  const onPasswordSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (loading) return;
-
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      toast.error(`Use pelo menos ${MIN_PASSWORD_LENGTH} caracteres na senha.`);
-      return;
-    }
-
+  const submitPassword = async () => {
     setSubmitting(true);
     try {
       let outcome: 'signed_in' | 'created';
@@ -119,27 +118,27 @@ export function LoginForm() {
           outcome = (await createUser(email, password)).outcome;
         } catch (createError) {
           if (errorCode(createError) === 'auth/email-already-in-use') {
-            // Account showed up between step 1 and step 2 — most
-            // likely the user finished sign-up in another tab. Pivot
-            // the UI in place instead of throwing them back to step 1.
+            // The lookup told us the email was new, but Firebase
+            // disagrees. Most likely causes:
+            //   * lookup race — account was created in another tab,
+            //   * lookup endpoint returned a false negative.
+            // Whatever the cause, the user's password is still in the
+            // box. Sign in with it transparently so they never have to
+            // notice the recovery.
+            outcome = (await signInUser(email, password)).outcome;
             setEmailStatus('exists');
-            setPassword('');
-            toast.error('Já existe uma conta com este email — entre com sua senha.');
-            return;
+          } else {
+            throw createError;
           }
-          throw createError;
         }
       } else {
-        // Lookup was unavailable — fall back to the resilient combined
-        // path. This is the same behaviour the form had before
-        // step-splitting, so we never regress when the API is down.
         outcome = (await signInOrCreate(email, password)).outcome;
       }
 
       if (outcome === 'created') {
         toast.success('Conta criada! Vamos configurar seu estúdio.');
       }
-      startTransition(() => router.replace(ROUTES.dashboard));
+      navigateToDashboard();
     } catch (error) {
       const authError = toAuthError(error);
       toast.error(authError.message);
@@ -148,11 +147,40 @@ export function LoginForm() {
     }
   };
 
+  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (loading) return;
+
+    if (step === 'email') {
+      const trimmed = email.trim();
+      if (!EMAIL_REGEX.test(trimmed)) {
+        toast.error('Informe um email válido.');
+        return;
+      }
+      setEmail(trimmed);
+      await goToPasswordStep(trimmed);
+      return;
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      toast.error(`Use pelo menos ${MIN_PASSWORD_LENGTH} caracteres na senha.`);
+      return;
+    }
+    await submitPassword();
+  };
+
   const onBackToEmail = () => {
     if (loading) return;
     setStep('email');
     setPassword('');
   };
+
+  const buttonLabel = (() => {
+    if (step === 'email') return loading ? 'Verificando…' : 'Continuar';
+    if (redirecting) return 'Redirecionando…';
+    if (emailStatus === 'new') return loading ? 'Criando…' : 'Criar conta';
+    return loading ? 'Entrando…' : 'Entrar';
+  })();
 
   return (
     <div className="rounded-2xl border border-border bg-card p-8 shadow-lg">
@@ -164,106 +192,76 @@ export function LoginForm() {
         disabled={loading}
       />
 
-      <div className="relative">
+      <form onSubmit={onSubmit} className="space-y-4" noValidate>
+        {/* Email field — always rendered. On step 2 it stays hidden
+            from view but mounted, so password managers can pair it
+            with the password field and we never have to play the
+            mount/unmount roulette inside the form. */}
+        <div className={step === 'email' ? 'space-y-1.5' : 'hidden'}>
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            ref={emailRef}
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="username email"
+            required
+            disabled={loading || step !== 'email'}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="voce@exemplo.com"
+          />
+        </div>
+
         <AnimatePresence mode="wait" initial={false}>
-          {step === 'email' ? (
-            <motion.form
-              key="email"
-              onSubmit={onEmailSubmit}
-              className="space-y-4"
-              noValidate
+          {step === 'password' ? (
+            <motion.div
+              key="password-fields"
               initial={{ opacity: 0, x: 8 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
+              className="space-y-1.5"
             >
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  inputMode="email"
-                  autoComplete="username email"
-                  autoFocus
-                  required
-                  disabled={loading}
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="voce@exemplo.com"
-                />
-              </div>
-
-              <Button type="submit" size="lg" loading={loading} className="w-full">
-                {loading ? 'Verificando…' : 'Continuar'}
-                {!loading ? <ArrowRight className="size-4" /> : null}
-              </Button>
-
-              <p className="text-center text-xs text-muted-foreground">
-                Sem conta? Criamos uma na próxima tela.
-              </p>
-            </motion.form>
-          ) : (
-            <motion.form
-              key="password"
-              onSubmit={onPasswordSubmit}
-              className="space-y-4"
-              noValidate
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.18, ease: 'easeOut' }}
-            >
-              {/* Hidden email field so password managers can save the pair. */}
-              <input
-                type="email"
-                name="email"
-                autoComplete="username email"
-                value={email}
-                readOnly
-                hidden
+              <Label htmlFor="password">
+                {emailStatus === 'new' ? 'Crie uma senha' : 'Sua senha'}
+              </Label>
+              <Input
+                id="password"
+                ref={passwordRef}
+                name="password"
+                type="password"
+                autoComplete={
+                  emailStatus === 'new' ? 'new-password' : 'current-password'
+                }
+                required
+                minLength={MIN_PASSWORD_LENGTH}
+                disabled={loading}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Mínimo 8 caracteres"
               />
-
-              <div className="space-y-1.5">
-                <Label htmlFor="password">
-                  {emailStatus === 'new' ? 'Crie uma senha' : 'Sua senha'}
-                </Label>
-                <Input
-                  id="password"
-                  ref={passwordRef}
-                  name="password"
-                  type="password"
-                  autoComplete={
-                    emailStatus === 'new' ? 'new-password' : 'current-password'
-                  }
-                  required
-                  minLength={MIN_PASSWORD_LENGTH}
-                  disabled={loading}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="Mínimo 8 caracteres"
-                />
-                <p className="text-xs text-muted-foreground">
-                  {emailStatus === 'new'
-                    ? 'Use ao menos 8 caracteres. Essa senha protege seu estúdio.'
-                    : 'A senha que você cadastrou ao criar a conta.'}
-                </p>
-              </div>
-
-              <Button type="submit" size="lg" loading={loading} className="w-full">
-                {loading
-                  ? emailStatus === 'new'
-                    ? 'Criando…'
-                    : 'Entrando…'
-                  : emailStatus === 'new'
-                    ? 'Criar conta'
-                    : 'Entrar'}
-                {!loading ? <ArrowRight className="size-4" /> : null}
-              </Button>
-            </motion.form>
-          )}
+              <p className="text-xs text-muted-foreground">
+                {emailStatus === 'new'
+                  ? 'Use ao menos 8 caracteres. Essa senha protege seu estúdio.'
+                  : 'A senha que você cadastrou ao criar a conta.'}
+              </p>
+            </motion.div>
+          ) : null}
         </AnimatePresence>
-      </div>
+
+        <Button type="submit" size="lg" loading={loading} className="w-full">
+          {buttonLabel}
+          {!loading ? <ArrowRight className="size-4" /> : null}
+        </Button>
+
+        {step === 'email' ? (
+          <p className="text-center text-xs text-muted-foreground">
+            Sem conta? Criamos uma na próxima tela.
+          </p>
+        ) : null}
+      </form>
     </div>
   );
 }
