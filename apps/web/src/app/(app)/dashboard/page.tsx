@@ -16,7 +16,8 @@ import { Card, Skeleton, cn } from '@photogrid/ui';
 
 import { useAuth } from '@/lib/hooks/use-auth';
 import { subscribeToGalleries } from '@/lib/services/gallery-service';
-import type { GalleryDoc } from '@/types';
+import { subscribeToStudioOrders } from '@/lib/services/order-service';
+import type { GalleryDoc, OrderDoc } from '@/types';
 
 // Pretty-print numbers in the visitor's locale (1234 → "1.234" in pt-BR).
 // `undefined` locale means the browser picks based on its language, which
@@ -32,20 +33,29 @@ export default function DashboardPage() {
   // gallery doc — same data the /dashboard/galleries page uses, so the
   // numbers stay in sync without a second query.
   const [galleries, setGalleries] = React.useState<GalleryDoc[] | null>(null);
+  const [orders, setOrders] = React.useState<OrderDoc[] | null>(null);
 
   React.useEffect(() => {
     if (!studioId) {
       setGalleries(null);
+      setOrders(null);
       return;
     }
-    const unsubscribe = subscribeToGalleries(studioId, setGalleries, (err) => {
+    const unsubGalleries = subscribeToGalleries(studioId, setGalleries, (err) => {
       console.error('[dashboard] gallery subscription error', err);
       setGalleries([]);
     });
-    return unsubscribe;
+    const unsubOrders = subscribeToStudioOrders(studioId, setOrders, (err) => {
+      console.error('[dashboard] orders subscription error', err);
+      setOrders([]);
+    });
+    return () => {
+      unsubGalleries();
+      unsubOrders();
+    };
   }, [studioId]);
 
-  const loading = galleries === null;
+  const loading = galleries === null || orders === null;
   const galleryCount = galleries?.length ?? 0;
   const albumCount = (galleries ?? []).reduce(
     (sum, g) => sum + (g.albumCount ?? 0),
@@ -55,11 +65,14 @@ export default function DashboardPage() {
     (sum, g) => sum + (g.photoCount ?? 0),
     0,
   );
-  // Clientes and Pedidos are placeholders until those features ship —
-  // showing them here gives the studio a sense of where the dashboard
-  // is heading and keeps the layout balanced.
-  const clientCount = 0;
-  const orderCount = 0;
+  // Orders + Clientes derive from the same subscription:
+  //   - "Pedidos" counts non-cart orders (real purchases, in any state)
+  //   - "Clientes" deduplicates paid orders by customer phone
+  const realOrders = (orders ?? []).filter((o) => o.status !== 'cart');
+  const orderCount = realOrders.length;
+  const clientCount = new Set(
+    realOrders.filter((o) => o.status === 'paid').map((o) => o.customerPhone),
+  ).size;
 
   const stats: StatCardProps[] = [
     {

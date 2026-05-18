@@ -5,7 +5,8 @@ import { ChevronLeft } from 'lucide-react';
 
 import { APP_DOMAIN, ROUTES } from '@photogrid/config';
 
-import { ProtectedPhoto } from '@/components/public/protected-photo';
+import { StorefrontAlbumCard } from '@/components/public/storefront-album-card';
+import { StorefrontPhotoGrid } from '@/components/public/storefront-photo-grid';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPublicAlbums,
@@ -13,7 +14,7 @@ import {
   fetchPublicGalleryWithAccess,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
-import { effectiveStudioSecurity } from '@/types';
+import { effectiveStudioSecurity, resolveGalleryPrices } from '@/types';
 
 interface Props {
   params: Promise<{ slug: string; galleryId: string }>;
@@ -60,6 +61,7 @@ export default async function PublicGalleryPage({ params }: Props) {
   ]);
   const security = effectiveStudioSecurity(studio);
   const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
+  const prices = resolveGalleryPrices(gallery, studio);
 
   return (
     <StorefrontShell studio={studio}>
@@ -99,19 +101,14 @@ export default async function PublicGalleryPage({ params }: Props) {
                 Nenhuma foto publicada nesta galeria ainda.
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {photos.map((photo) => (
-                  <ProtectedPhoto
-                    key={photo.id}
-                    src={photo.thumbnailUrl ?? photo.imageUrl}
-                    fullSrc={photo.imageUrl}
-                    alt={photo.fileName}
-                    studioName={studio.name}
-                    studioUrl={studioUrl}
-                    security={security}
-                  />
-                ))}
-              </div>
+              <StorefrontPhotoGrid
+                photos={photos}
+                studio={{ id: studio.id, name: studio.name, slug: studio.slug }}
+                studioUrl={studioUrl}
+                security={security}
+                gallery={{ id: gallery.id, title: gallery.title }}
+                pricePerPhotoCents={prices.pricePerPhotoCents}
+              />
             )}
           </section>
         ) : null}
@@ -130,39 +127,15 @@ export default async function PublicGalleryPage({ params }: Props) {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {albums.map((album) => (
-                <Link
+                <StorefrontAlbumCard
                   key={album.id}
-                  href={ROUTES.publicAlbum(studio.slug, gallery.id, album.id)}
-                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  {album.coverPhotoUrl ? (
-                    <ProtectedPhoto
-                      src={album.coverPhotoUrl}
-                      alt={album.title}
-                      studioName={studio.name}
-                      studioUrl={studioUrl}
-                      security={security}
-                      interactive="none"
-                      aspect="aspect-[5/4]"
-                      className="rounded-none"
-                    />
-                  ) : (
-                    <div className="relative aspect-[5/4] w-full overflow-hidden bg-muted">
-                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-line text-xs font-medium uppercase tracking-wide text-mute">
-                        Sem capa
-                      </div>
-                    </div>
-                  )}
-                  <div className="space-y-1 p-5">
-                    <h2 className="text-base font-semibold tracking-tight text-ink">
-                      {album.title}
-                    </h2>
-                    <p className="pt-2 text-xs text-muted-foreground">
-                      {album.photoIds.length}{' '}
-                      {album.photoIds.length === 1 ? 'foto' : 'fotos'}
-                    </p>
-                  </div>
-                </Link>
+                  album={album}
+                  studio={{ id: studio.id, name: studio.name, slug: studio.slug }}
+                  studioUrl={studioUrl}
+                  security={security}
+                  gallery={{ id: gallery.id, title: gallery.title }}
+                  pricePerAlbumCents={prices.pricePerAlbumCents}
+                />
               ))}
             </div>
           </section>

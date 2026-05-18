@@ -81,6 +81,23 @@ export default function GalleryDetailPage() {
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [pricingOpen, setPricingOpen] = React.useState(false);
 
+  // Photo pagination. We still subscribe to the full list because:
+  //   - cluster-suggestions resolves `photoIds → PhotoDoc` for the
+  //     inline strip and the "Ver fotos" dialog;
+  //   - counter reconciliation needs a trusted total;
+  //   - new uploads must appear instantly without re-fetching.
+  // …but we render only `visiblePhotoCount` at a time so a 300-photo
+  // gallery doesn't generate 300 DOM nodes on every visit. "Ver mais"
+  // bumps the window by one page; a future optimisation can move the
+  // initial fetch to a cursor-paginated query to save Firestore reads
+  // on top of this DOM-level cap.
+  const PHOTO_PAGE_SIZE = 9;
+  const [visiblePhotoCount, setVisiblePhotoCount] =
+    React.useState(PHOTO_PAGE_SIZE);
+  React.useEffect(() => {
+    setVisiblePhotoCount(PHOTO_PAGE_SIZE);
+  }, [galleryId]);
+
   const reloadGallery = React.useCallback(async () => {
     const next = await getGallery(galleryId);
     setGallery(next);
@@ -352,15 +369,38 @@ export default function GalleryDetailPage() {
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {isOwner ? (
-              <PhotoUploaderTile
-                onSelect={uploader.enqueueFiles}
-                uploadingCount={uploadingCount}
+          <>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {isOwner ? (
+                <PhotoUploaderTile
+                  onSelect={uploader.enqueueFiles}
+                  uploadingCount={uploadingCount}
+                />
+              ) : null}
+              <PhotoGrid
+                photos={photos.slice(0, visiblePhotoCount)}
+                canDelete={Boolean(isOwner)}
+                embedded
               />
+            </div>
+            {photos.length > visiblePhotoCount ? (
+              <div className="flex justify-center pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setVisiblePhotoCount((current) =>
+                      Math.min(photos.length, current + PHOTO_PAGE_SIZE),
+                    )
+                  }
+                >
+                  Ver mais{' '}
+                  {Math.min(PHOTO_PAGE_SIZE, photos.length - visiblePhotoCount)}
+                </Button>
+              </div>
             ) : null}
-            <PhotoGrid photos={photos} canDelete={Boolean(isOwner)} embedded />
-          </div>
+          </>
         )}
       </section>
 

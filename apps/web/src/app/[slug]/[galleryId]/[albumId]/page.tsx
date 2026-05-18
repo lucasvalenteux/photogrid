@@ -5,7 +5,8 @@ import { ChevronLeft } from 'lucide-react';
 
 import { APP_DOMAIN, ROUTES } from '@photogrid/config';
 
-import { ProtectedPhoto } from '@/components/public/protected-photo';
+import { AddToCartButton } from '@/components/public/add-to-cart-button';
+import { StorefrontPhotoGrid } from '@/components/public/storefront-photo-grid';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
   fetchPhotosByIds,
@@ -13,7 +14,7 @@ import {
   fetchPublicGalleryWithAccess,
   fetchPublicStudioBySlug,
 } from '@/lib/services/public-service';
-import { effectiveStudioSecurity } from '@/types';
+import { effectiveStudioSecurity, resolveGalleryPrices } from '@/types';
 
 interface Props {
   params: Promise<{ slug: string; galleryId: string; albumId: string }>;
@@ -61,6 +62,7 @@ export default async function PublicAlbumPage({ params }: Props) {
   const photos = await fetchPhotosByIds(album.photoIds);
   const security = effectiveStudioSecurity(studio);
   const studioUrl = `${APP_DOMAIN}/${studio.slug}`;
+  const prices = resolveGalleryPrices(gallery, studio);
 
   return (
     <StorefrontShell studio={studio}>
@@ -84,25 +86,47 @@ export default async function PublicAlbumPage({ params }: Props) {
           </span>
         </header>
 
+        {prices.pricePerAlbumCents > 0 ? (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <p className="text-sm text-muted-foreground">
+              Compre o álbum completo com todas as fotos em alta
+              qualidade.
+            </p>
+            <AddToCartButton
+              size="lg"
+              showPrice
+              studioId={studio.id}
+              studioSlug={studio.slug}
+              payload={{
+                galleryId: gallery.id,
+                galleryTitle: gallery.title,
+                item: {
+                  type: 'album',
+                  itemId: album.id,
+                  title: album.title,
+                  thumbnailUrl: album.coverPhotoUrl ?? null,
+                  priceCents: prices.pricePerAlbumCents,
+                  photoCount: album.photoIds.length,
+                },
+              }}
+            />
+          </div>
+        ) : null}
+
         <div className="mt-8">
           {photos.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-16 text-center text-sm text-muted-foreground">
               As fotos deste álbum serão publicadas em breve.
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {photos.map((photo) => (
-                <ProtectedPhoto
-                  key={photo.id}
-                  src={photo.thumbnailUrl ?? photo.imageUrl}
-                  fullSrc={photo.imageUrl}
-                  alt={photo.fileName}
-                  studioName={studio.name}
-                  studioUrl={studioUrl}
-                  security={security}
-                />
-              ))}
-            </div>
+            <StorefrontPhotoGrid
+              photos={photos}
+              studio={{ id: studio.id, name: studio.name, slug: studio.slug }}
+              studioUrl={studioUrl}
+              security={security}
+              gallery={{ id: gallery.id, title: gallery.title }}
+              pricePerPhotoCents={prices.pricePerPhotoCents}
+            />
           )}
         </div>
       </section>
