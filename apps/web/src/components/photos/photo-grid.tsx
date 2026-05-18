@@ -31,6 +31,7 @@ import type { PhotoDoc } from '@/types';
 interface PhotoGridProps {
   photos: PhotoDoc[];
   canDelete?: boolean;
+  onPhotoDeleted?: (photoId: string) => void;
   /**
    * When true, skips the outer grid wrapper and renders the `<figure>`
    * tiles as direct children — useful when the parent owns the grid layout
@@ -43,6 +44,7 @@ interface PhotoGridProps {
 export function PhotoGrid({
   photos,
   canDelete = false,
+  onPhotoDeleted,
   embedded = false,
   className,
 }: PhotoGridProps) {
@@ -55,6 +57,7 @@ export function PhotoGrid({
     setDeletingId(photo.id);
     try {
       await deletePhoto(photo);
+      onPhotoDeleted?.(photo.id);
       toast.success('Foto removida.');
       setSelectedPhoto((current) => (current?.id === photo.id ? null : current));
     } catch (error) {

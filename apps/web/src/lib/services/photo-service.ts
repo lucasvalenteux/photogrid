@@ -180,10 +180,18 @@ export async function uploadAndCommitPhoto({
 
 export async function deletePhoto(photo: PhotoDoc): Promise<void> {
   await deleteDoc(photoDoc(photo.id));
-  await Promise.all([
+
+  // The Firestore document is the source of truth for the gallery UI. Storage
+  // cleanup can fail for stale/missing objects or rules drift, so keep it
+  // best-effort instead of surfacing a false "delete failed" after the photo
+  // has already disappeared from the database.
+  Promise.all([
     deletePhotoObject(photo.storagePath),
     photo.thumbnailPath ? deletePhotoObject(photo.thumbnailPath) : Promise.resolve(),
-  ]);
+  ]).catch((error) => {
+    console.warn('[photo] failed to clean up storage object', error);
+  });
+
   // Decrement the counter. If the deleted photo was the gallery's cover, we
   // clear it — the detail page reconciler will re-pick a stable cover from
   // the remaining photos on the next mount.

@@ -380,6 +380,9 @@ export default function GalleryDetailPage() {
               <PhotoGrid
                 photos={photos.slice(0, visiblePhotoCount)}
                 canDelete={Boolean(isOwner)}
+                onPhotoDeleted={(photoId) =>
+                  setPhotos((current) => current.filter((photo) => photo.id !== photoId))
+                }
                 embedded
               />
             </div>
