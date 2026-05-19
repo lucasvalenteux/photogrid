@@ -3,11 +3,14 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
+  CalendarDays,
   Check,
   Clock,
   ExternalLink,
+  Images,
   Loader2,
   MessageCircle,
+  Phone,
   Plus,
   ShoppingBag,
   XCircle,
@@ -365,7 +368,7 @@ function OrdersTable({
           {emptyLabel}
         </div>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+        <ul className="grid gap-3">
           {orders.map((order) => (
             <OrderRow
               key={order.id}
@@ -392,65 +395,126 @@ function OrderRow({
     'Data não registrada';
   const statusDateLabel = statusDateForOrder(order);
   const customerLabel = order.customerName || 'Sem nome';
+  const itemCountLabel = `${order.items.length} ${
+    order.items.length === 1 ? 'item' : 'itens'
+  }`;
 
   return (
-    <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        <div className="size-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-          {order.items[0]?.thumbnailUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={order.items[0].thumbnailUrl}
-              alt=""
-              className="size-full object-cover"
-              loading="lazy"
-            />
-          ) : null}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="min-w-0 max-w-full truncate text-sm font-medium text-foreground">
-              {customerLabel}
-            </p>
-            <StatusPill status={order.status} />
+    <li className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
+      <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[1fr_auto]">
+        <div className="flex min-w-0 gap-3 sm:gap-4">
+          <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-muted sm:size-20">
+            {order.items[0]?.thumbnailUrl ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={order.items[0].thumbnailUrl}
+                alt=""
+                className="size-full object-cover"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex size-full items-center justify-center text-muted-foreground">
+                <Images className="size-5" />
+              </div>
+            )}
           </div>
-          <p className="mt-0.5 break-words text-xs text-muted-foreground">
-            {displayBrPhone(order.customerPhone)} · {order.galleryTitle}
-          </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {order.items.length}{' '}
-            {order.items.length === 1 ? 'item' : 'itens'} · Criado em{' '}
-            {createdDateLabel}
-          </p>
-          {statusDateLabel ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {statusDateLabel}
-            </p>
-          ) : null}
-          <OrderItemsSummary order={order} />
-        </div>
-      </div>
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="min-w-0 max-w-full truncate text-base font-semibold text-ink">
+                    {customerLabel}
+                  </p>
+                  <StatusPill status={order.status} />
+                </div>
+                <p className="mt-1 break-words text-sm text-muted-foreground">
+                  {order.galleryTitle}
+                </p>
+              </div>
+              <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+                {shortOrderId(order.id)}
+              </span>
+            </div>
 
-      <div className="flex w-full flex-col gap-2 border-t border-border pt-3 sm:w-auto sm:min-w-40 sm:items-end sm:border-t-0 sm:pt-0">
-        <span className="text-sm font-semibold text-ink">
-          {formatCents(order.totalCents)}
-        </span>
-        <div className="flex w-full justify-stretch [&>*]:w-full sm:w-auto sm:[&>*]:w-auto">
-          {renderActions(order)}
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <OrderInfo
+                icon={Phone}
+                label="Telefone"
+                value={displayBrPhone(order.customerPhone)}
+              />
+              <OrderInfo icon={Images} label="Itens" value={itemCountLabel} />
+              <OrderInfo
+                icon={CalendarDays}
+                label="Criado em"
+                value={createdDateLabel}
+              />
+              {statusDateLabel ? (
+                <OrderInfo
+                  icon={Clock}
+                  label={statusDateLabel.label}
+                  value={statusDateLabel.value}
+                />
+              ) : null}
+            </div>
+
+            <OrderItemsSummary order={order} />
+          </div>
+        </div>
+
+        <div className="flex flex-col justify-between gap-3 rounded-xl border border-border bg-muted/30 p-3 lg:min-w-44 lg:items-end">
+          <div className="space-y-1 lg:text-right">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Total
+            </p>
+            <p className="text-xl font-semibold text-ink">
+              {formatCents(order.totalCents)}
+            </p>
+          </div>
+          <div className="flex w-full justify-stretch [&>*]:w-full lg:w-auto lg:[&>*]:w-auto">
+            {renderActions(order)}
+          </div>
         </div>
       </div>
     </li>
   );
 }
 
-function statusDateForOrder(order: OrderDoc): string | null {
+function OrderInfo({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex min-w-0 items-start gap-2 rounded-xl border border-border bg-background/60 px-3 py-2">
+      <Icon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </p>
+        <p className="truncate text-xs font-medium text-foreground">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function shortOrderId(id: string): string {
+  return `#${id.slice(0, 6).toUpperCase()}`;
+}
+
+function statusDateForOrder(
+  order: OrderDoc,
+): { label: string; value: string } | null {
   if (order.status === 'paid') {
     const date = formatOrderDate(order.paidAt ?? order.updatedAt);
-    return date ? `Pago em ${date}` : null;
+    return date ? { label: 'Pago em', value: date } : null;
   }
   if (order.status === 'cancelled') {
     const date = formatOrderDate(order.cancelledAt ?? order.updatedAt);
-    return date ? `Cancelado em ${date}` : null;
+    return date ? { label: 'Cancelado em', value: date } : null;
   }
   return null;
 }
@@ -486,23 +550,29 @@ function OrderItemsSummary({ order }: { order: OrderDoc }) {
   const hiddenCount = Math.max(0, order.items.length - visibleItems.length);
 
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
-      {visibleItems.map((item, index) => (
-        <span
-          key={`${item.type}:${item.itemId}:${index}`}
-          className="max-w-full rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground"
-        >
-          <span className="font-medium text-foreground">
-            {item.type === 'album' ? 'Álbum' : 'Foto'}:
-          </span>{' '}
-          <span className="break-words">{item.title}</span>
-        </span>
-      ))}
-      {hiddenCount > 0 ? (
-        <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
-          +{hiddenCount} {hiddenCount === 1 ? 'item' : 'itens'}
-        </span>
-      ) : null}
+    <div className="rounded-xl border border-border bg-muted/30 p-3">
+      <div className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <ShoppingBag className="size-3.5" />
+        Compra
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {visibleItems.map((item, index) => (
+          <span
+            key={`${item.type}:${item.itemId}:${index}`}
+            className="max-w-full rounded-full bg-background px-2.5 py-1 text-[11px] text-muted-foreground"
+          >
+            <span className="font-medium text-foreground">
+              {item.type === 'album' ? 'Álbum' : 'Foto'}:
+            </span>{' '}
+            <span className="break-words">{item.title}</span>
+          </span>
+        ))}
+        {hiddenCount > 0 ? (
+          <span className="rounded-full bg-background px-2.5 py-1 text-[11px] text-muted-foreground">
+            +{hiddenCount} {hiddenCount === 1 ? 'item' : 'itens'}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
