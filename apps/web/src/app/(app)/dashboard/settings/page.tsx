@@ -334,16 +334,6 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Segurança</CardTitle>
-          <CardDescription>Senha, sessões ativas e autenticação em duas etapas.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">Em breve.</p>
-        </CardContent>
-      </Card>
-
-      <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div className="space-y-1.5">
             <CardTitle>Visibilidade</CardTitle>
