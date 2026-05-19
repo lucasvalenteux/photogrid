@@ -422,6 +422,8 @@ export interface OrderDoc {
   updatedAt: string;
   /** Set when status transitions to `paid`. */
   paidAt: string | null;
+  /** Set when status transitions to `cancelled`. */
+  cancelledAt?: string | null;
 }
 
 export interface ClientDoc {

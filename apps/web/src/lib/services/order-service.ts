@@ -177,6 +177,7 @@ export async function markOrderAsPaid(
 export async function cancelOrder(orderId: string): Promise<void> {
   await updateDoc(orderDoc(orderId), {
     status: 'cancelled' satisfies OrderStatus,
+    cancelledAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
 }

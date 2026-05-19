@@ -10,6 +10,7 @@ import {
   MessageCircle,
   Plus,
   ShoppingBag,
+  XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -34,6 +35,7 @@ import { subscribeToAlbums } from '@/lib/services/album-service';
 import { subscribeToStudioClients } from '@/lib/services/client-service';
 import { subscribeToGalleries } from '@/lib/services/gallery-service';
 import {
+  cancelOrder,
   createManualPendingOrder,
   generateAccessToken,
   markOrderAsPaid,
@@ -54,17 +56,20 @@ import {
 function partition(orders: OrderDoc[]): {
   pending: OrderDoc[];
   paid: OrderDoc[];
+  cancelled: OrderDoc[];
   abandoned: OrderDoc[];
 } {
   const pending: OrderDoc[] = [];
   const paid: OrderDoc[] = [];
+  const cancelled: OrderDoc[] = [];
   const abandoned: OrderDoc[] = [];
   for (const order of orders) {
     if (order.status === 'pending') pending.push(order);
     else if (order.status === 'paid') paid.push(order);
+    else if (order.status === 'cancelled') cancelled.push(order);
     else if (order.status === 'cart') abandoned.push(order);
   }
-  return { pending, paid, abandoned };
+  return { pending, paid, cancelled, abandoned };
 }
 
 export default function OrdersPage() {
@@ -74,6 +79,7 @@ export default function OrdersPage() {
   const [galleries, setGalleries] = React.useState<GalleryDoc[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [markingId, setMarkingId] = React.useState<string | null>(null);
+  const [cancellingId, setCancellingId] = React.useState<string | null>(null);
   const [createOpen, setCreateOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -107,7 +113,7 @@ export default function OrdersPage() {
     };
   }, [studio]);
 
-  const { pending, paid, abandoned } = React.useMemo(
+  const { pending, paid, cancelled, abandoned } = React.useMemo(
     () => partition(orders),
     [orders],
   );
@@ -117,7 +123,7 @@ export default function OrdersPage() {
   );
 
   const onMarkPaid = async (order: OrderDoc) => {
-    if (markingId) return;
+    if (markingId || cancellingId) return;
     setMarkingId(order.id);
     try {
       const token = generateAccessToken();
@@ -128,6 +134,20 @@ export default function OrdersPage() {
       toast.error('Falha ao marcar como pago.');
     } finally {
       setMarkingId(null);
+    }
+  };
+
+  const onCancelOrder = async (order: OrderDoc) => {
+    if (markingId || cancellingId) return;
+    setCancellingId(order.id);
+    try {
+      await cancelOrder(order.id);
+      toast.success('Pedido cancelado.');
+    } catch (error) {
+      console.error('[orders] cancel failed', error);
+      toast.error('Falha ao cancelar pedido.');
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -176,20 +196,38 @@ export default function OrdersPage() {
         emptyLabel="Nenhum pedido aguardando confirmação."
         orders={pending}
         renderActions={(order) => (
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => onMarkPaid(order)}
-            loading={markingId === order.id}
-            disabled={Boolean(markingId)}
-          >
-            {markingId === order.id ? (
-              <Loader2 className="size-3.5 animate-spin" />
-            ) : (
-              <Check className="size-3.5" />
-            )}
-            Marcar como pago
-          </Button>
+          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => onMarkPaid(order)}
+              loading={markingId === order.id}
+              disabled={Boolean(markingId || cancellingId)}
+            >
+              {markingId === order.id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
+              Pago
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-red-200 text-red-700 hover:bg-red-50"
+              onClick={() => onCancelOrder(order)}
+              loading={cancellingId === order.id}
+              disabled={Boolean(markingId || cancellingId)}
+            >
+              {cancellingId === order.id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <XCircle className="size-3.5" />
+              )}
+              Cancelar
+            </Button>
+          </div>
         )}
       />
 
@@ -213,6 +251,16 @@ export default function OrdersPage() {
             <span className="text-xs text-muted-foreground">Sem link</span>
           )
         }
+      />
+
+      <OrdersTable
+        title="Cancelados"
+        description="Pedidos que foram encerrados sem confirmação de pagamento."
+        emptyLabel="Nenhum pedido cancelado."
+        orders={cancelled}
+        renderActions={() => (
+          <span className="text-xs text-muted-foreground">Encerrado</span>
+        )}
       />
 
       <OrdersTable
@@ -338,14 +386,11 @@ function OrderRow({
   order: OrderDoc;
   renderActions: (order: OrderDoc) => React.ReactNode;
 }) {
-  const date = new Date(order.createdAt);
-  const dateLabel = Number.isFinite(date.getTime())
-    ? date.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      })
-    : '';
+  const createdDateLabel =
+    formatOrderDate(order.createdAt) ??
+    formatOrderDate(order.updatedAt) ??
+    'Data não registrada';
+  const statusDateLabel = statusDateForOrder(order);
   const customerLabel = order.customerName || 'Sem nome';
 
   return (
@@ -374,8 +419,14 @@ function OrderRow({
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {order.items.length}{' '}
-            {order.items.length === 1 ? 'item' : 'itens'} · {dateLabel}
+            {order.items.length === 1 ? 'item' : 'itens'} · Criado em{' '}
+            {createdDateLabel}
           </p>
+          {statusDateLabel ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {statusDateLabel}
+            </p>
+          ) : null}
           <OrderItemsSummary order={order} />
         </div>
       </div>
@@ -389,6 +440,44 @@ function OrderRow({
         </div>
       </div>
     </li>
+  );
+}
+
+function statusDateForOrder(order: OrderDoc): string | null {
+  if (order.status === 'paid') {
+    const date = formatOrderDate(order.paidAt ?? order.updatedAt);
+    return date ? `Pago em ${date}` : null;
+  }
+  if (order.status === 'cancelled') {
+    const date = formatOrderDate(order.cancelledAt ?? order.updatedAt);
+    return date ? `Cancelado em ${date}` : null;
+  }
+  return null;
+}
+
+function formatOrderDate(value: unknown): string | null {
+  const date =
+    typeof value === 'string' || typeof value === 'number'
+      ? new Date(value)
+      : isTimestampLike(value)
+        ? value.toDate()
+        : null;
+
+  if (!date || !Number.isFinite(date.getTime())) return null;
+
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function isTimestampLike(value: unknown): value is { toDate: () => Date } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'toDate' in value &&
+    typeof (value as { toDate?: unknown }).toDate === 'function'
   );
 }
 
