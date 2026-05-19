@@ -349,8 +349,8 @@ function OrderRow({
   const customerLabel = order.customerName || 'Sem nome';
 
   return (
-    <li className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
+    <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
         <div className="size-12 shrink-0 overflow-hidden rounded-lg bg-muted">
           {order.items[0]?.thumbnailUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -362,30 +362,59 @@ function OrderRow({
             />
           ) : null}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="min-w-0 max-w-full truncate text-sm font-medium text-foreground">
               {customerLabel}
             </p>
             <StatusPill status={order.status} />
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
+          <p className="mt-0.5 break-words text-xs text-muted-foreground">
             {displayBrPhone(order.customerPhone)} · {order.galleryTitle}
           </p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {order.items.length}{' '}
             {order.items.length === 1 ? 'item' : 'itens'} · {dateLabel}
           </p>
+          <OrderItemsSummary order={order} />
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex w-full flex-col gap-2 border-t border-border pt-3 sm:w-auto sm:min-w-40 sm:items-end sm:border-t-0 sm:pt-0">
         <span className="text-sm font-semibold text-ink">
           {formatCents(order.totalCents)}
         </span>
-        {renderActions(order)}
+        <div className="flex w-full justify-stretch [&>*]:w-full sm:w-auto sm:[&>*]:w-auto">
+          {renderActions(order)}
+        </div>
       </div>
     </li>
+  );
+}
+
+function OrderItemsSummary({ order }: { order: OrderDoc }) {
+  const visibleItems = order.items.slice(0, 3);
+  const hiddenCount = Math.max(0, order.items.length - visibleItems.length);
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {visibleItems.map((item, index) => (
+        <span
+          key={`${item.type}:${item.itemId}:${index}`}
+          className="max-w-full rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground"
+        >
+          <span className="font-medium text-foreground">
+            {item.type === 'album' ? 'Álbum' : 'Foto'}:
+          </span>{' '}
+          <span className="break-words">{item.title}</span>
+        </span>
+      ))}
+      {hiddenCount > 0 ? (
+        <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] text-muted-foreground">
+          +{hiddenCount} {hiddenCount === 1 ? 'item' : 'itens'}
+        </span>
+      ) : null}
+    </div>
   );
 }
 

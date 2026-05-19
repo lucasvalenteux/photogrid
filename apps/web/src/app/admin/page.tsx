@@ -800,7 +800,7 @@ function StudiosTable({
         <div>
           <h2 className="text-base font-semibold text-ink">Estúdios</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Consumo, vendas, plano e atividade por conta.
+            Consumo, vendas e atividade por conta.
           </p>
         </div>
         <Badge variant="brand">{formatCount(rows.length)} contas</Badge>
@@ -815,14 +815,13 @@ function StudiosTable({
         <EmptyState text="Nenhum estúdio criado ainda." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1040px] text-left text-sm">
+          <table className="w-full min-w-[940px] text-left text-sm">
             <thead className="bg-muted/60 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-5 py-3 font-medium">Estúdio</th>
                 <th className="px-5 py-3 font-medium">Conteúdo</th>
                 <th className="px-5 py-3 font-medium">Vendas</th>
                 <th className="px-5 py-3 font-medium">Consumo</th>
-                <th className="px-5 py-3 font-medium">Plano</th>
                 <th className="px-5 py-3 font-medium">Loja</th>
                 <th className="px-5 py-3 font-medium">Ações</th>
               </tr>
@@ -892,11 +891,6 @@ function StudiosTable({
                     <p className="mt-1 text-xs text-muted-foreground">
                       {formatCount(row.clients)} clientes
                     </p>
-                  </td>
-                  <td className="px-5 py-4">
-                    <Badge variant="outline" className="bg-background">
-                      Gratuito
-                    </Badge>
                   </td>
                   <td className="px-5 py-4">
                     <a
