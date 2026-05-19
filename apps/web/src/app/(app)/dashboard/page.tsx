@@ -5,13 +5,8 @@ import Link from 'next/link';
 import {
   ArrowRight,
   Flame,
-  ImageIcon,
-  Images,
-  LayoutGrid,
   LineChart,
-  ShoppingBag,
   TrendingUp,
-  Users,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
@@ -22,10 +17,9 @@ import { Badge, Card, Skeleton, cn } from '@photogrid/ui';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { formatCents } from '@/lib/format/currency';
 import { displayBrPhone } from '@/lib/format/phone';
-import { subscribeToStudioClients } from '@/lib/services/client-service';
 import { subscribeToGalleries } from '@/lib/services/gallery-service';
 import { subscribeToStudioOrders } from '@/lib/services/order-service';
-import type { ClientDoc, GalleryDoc, OrderDoc } from '@/types';
+import type { GalleryDoc, OrderDoc } from '@/types';
 
 // Pretty-print numbers in the visitor's locale (1234 → "1.234" in pt-BR).
 // `undefined` locale means the browser picks based on its language, which
@@ -61,15 +55,6 @@ type MoneyStat = {
   loading?: boolean;
 };
 
-type CountStat = {
-  label: string;
-  value: number;
-  detail: string;
-  icon: LucideIcon;
-  href: string;
-  loading?: boolean;
-};
-
 interface GalleryPerformance {
   galleryTitle: string;
   orderCount: number;
@@ -87,15 +72,11 @@ export default function DashboardPage() {
   // numbers stay in sync without a second query.
   const [galleries, setGalleries] = React.useState<GalleryDoc[] | null>(null);
   const [orders, setOrders] = React.useState<OrderDoc[] | null>(null);
-  const [manualClients, setManualClients] = React.useState<ClientDoc[] | null>(
-    null,
-  );
 
   React.useEffect(() => {
     if (!studioId) {
       setGalleries(null);
       setOrders(null);
-      setManualClients(null);
       return;
     }
     const unsubGalleries = subscribeToGalleries(studioId, setGalleries, (err) => {
@@ -106,40 +87,18 @@ export default function DashboardPage() {
       console.error('[dashboard] orders subscription error', err);
       setOrders([]);
     });
-    const unsubClients = subscribeToStudioClients(studioId, setManualClients, (err) => {
-      console.error('[dashboard] clients subscription error', err);
-      setManualClients([]);
-    });
     return () => {
       unsubGalleries();
       unsubOrders();
-      unsubClients();
     };
   }, [studioId]);
 
-  const loading = galleries === null || orders === null || manualClients === null;
+  const loading = galleries === null || orders === null;
   const galleryCount = galleries?.length ?? 0;
-  const albumCount = (galleries ?? []).reduce(
-    (sum, g) => sum + (g.albumCount ?? 0),
-    0,
-  );
-  const photoCount = (galleries ?? []).reduce(
-    (sum, g) => sum + (g.photoCount ?? 0),
-    0,
-  );
-  // Orders + Clientes derive from the same subscription:
-  //   - "Pedidos" counts non-cart orders (real purchases, in any state)
-  //   - "Clientes" deduplicates paid orders by customer phone
   const realOrders = (orders ?? []).filter((o) => o.status !== 'cart');
   const paidOrders = (orders ?? []).filter((o) => o.status === 'paid');
   const pendingOrders = (orders ?? []).filter((o) => o.status === 'pending');
   const cartOrders = (orders ?? []).filter((o) => o.status === 'cart');
-  const orderCount = realOrders.length;
-  const clientPhones = new Set([
-    ...(manualClients ?? []).map((client) => client.phone),
-    ...paidOrders.map((o) => o.customerPhone),
-  ]);
-  const clientCount = clientPhones.size;
   const revenueCents = paidOrders.reduce((sum, o) => sum + o.totalCents, 0);
   const pendingRevenueCents = pendingOrders.reduce(
     (sum, o) => sum + o.totalCents,
@@ -151,49 +110,6 @@ export default function DashboardPage() {
   const interestedCount = paidOrders.length + pendingOrders.length + cartOrders.length;
   const conversionRate =
     interestedCount > 0 ? (paidOrders.length / interestedCount) * 100 : 0;
-
-  const countStats: CountStat[] = [
-    {
-      label: 'Galerias',
-      value: galleryCount,
-      icon: Images,
-      href: ROUTES.galleries,
-      detail: `${formatCount(albumCount)} álbuns`,
-      loading,
-    },
-    {
-      label: 'Álbuns',
-      value: albumCount,
-      icon: LayoutGrid,
-      href: ROUTES.galleries,
-      detail: `${formatCount(photoCount)} fotos publicadas`,
-      loading,
-    },
-    {
-      label: 'Fotos',
-      value: photoCount,
-      icon: ImageIcon,
-      href: ROUTES.galleries,
-      detail: 'Arquivos em galerias',
-      loading,
-    },
-    {
-      label: 'Clientes',
-      value: clientCount,
-      icon: Users,
-      href: ROUTES.clients,
-      detail: `${formatCount(manualClients?.length ?? 0)} manuais`,
-      loading,
-    },
-    {
-      label: 'Pedidos',
-      value: orderCount,
-      icon: ShoppingBag,
-      href: ROUTES.orders,
-      detail: `${formatCount(pendingOrders.length)} aguardando`,
-      loading,
-    },
-  ];
 
   const moneyStats: MoneyStat[] = [
     {
@@ -255,12 +171,6 @@ export default function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         {moneyStats.map((stat) => (
           <MoneyStatCard key={stat.label} {...stat} />
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        {countStats.map((stat) => (
-          <CountStatCard key={stat.label} {...stat} />
         ))}
       </div>
 
@@ -387,46 +297,6 @@ function MoneyStatCard({
                 {value}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-            </>
-          )}
-        </div>
-      </Card>
-    </Link>
-  );
-}
-
-function CountStatCard({
-  label,
-  value,
-  detail,
-  icon: Icon,
-  href,
-  loading,
-}: CountStat) {
-  return (
-    <Link
-      href={href}
-      className="group block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-    >
-      <Card className="h-full p-4 transition-all group-hover:-translate-y-0.5 group-hover:shadow-md sm:p-5">
-        <div className="flex items-center justify-between text-muted-foreground">
-          <span className="text-sm font-medium text-ink">{label}</span>
-          <Icon className="size-4" aria-hidden="true" />
-        </div>
-        <div className="mt-3">
-          {loading ? (
-            <>
-              <Skeleton className="h-8 w-14" />
-              <Skeleton className="mt-2 h-3 w-20" />
-            </>
-          ) : (
-            <>
-              <span className="text-3xl font-semibold tracking-tight text-ink tabular-nums">
-                {formatCount(value)}
-              </span>
-              <p className="mt-1 truncate text-xs text-muted-foreground">
-                {detail}
-              </p>
             </>
           )}
         </div>
