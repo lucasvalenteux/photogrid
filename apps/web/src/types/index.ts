@@ -118,6 +118,13 @@ export interface StudioPricingSettings {
   pricePerAlbumCents?: number;
 }
 
+export interface StudioUsageCounters {
+  /** Successful/queued gallery-side face detection calls. */
+  aiFaceDetectionCalls?: number;
+  /** Successful public storefront face-search calls. */
+  aiPublicFaceSearchCalls?: number;
+}
+
 /**
  * Per-gallery price override. Missing fields fall back to the studio
  * default; an explicit `0` is honoured (you can configure a free
@@ -170,6 +177,8 @@ export interface StudioDoc {
   payment?: StudioPaymentSettings;
   /** Default monetary values for items sold across the storefront. */
   pricing?: StudioPricingSettings;
+  /** Usage counters used by the dashboard and future plan limits. */
+  usage?: StudioUsageCounters;
   /** Background theme applied to the public storefront. */
   storefrontTheme?: StorefrontThemeId;
   /** Internal admin flag: excluded from system-wide admin metrics. */

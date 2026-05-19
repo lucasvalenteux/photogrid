@@ -5,7 +5,11 @@ import Link from 'next/link';
 import {
   ArrowRight,
   Flame,
+  ImageIcon,
+  Images,
+  LayoutGrid,
   LineChart,
+  Sparkles,
   TrendingUp,
   Wallet,
   type LucideIcon,
@@ -55,6 +59,12 @@ type MoneyStat = {
   loading?: boolean;
 };
 
+type ConsumptionItem = {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+};
+
 interface GalleryPerformance {
   galleryTitle: string;
   orderCount: number;
@@ -95,6 +105,14 @@ export default function DashboardPage() {
 
   const loading = galleries === null || orders === null;
   const galleryCount = galleries?.length ?? 0;
+  const albumCount = (galleries ?? []).reduce(
+    (sum, g) => sum + (g.albumCount ?? 0),
+    0,
+  );
+  const photoCount = (galleries ?? []).reduce(
+    (sum, g) => sum + (g.photoCount ?? 0),
+    0,
+  );
   const realOrders = (orders ?? []).filter((o) => o.status !== 'cart');
   const paidOrders = (orders ?? []).filter((o) => o.status === 'paid');
   const pendingOrders = (orders ?? []).filter((o) => o.status === 'pending');
@@ -110,6 +128,8 @@ export default function DashboardPage() {
   const interestedCount = paidOrders.length + pendingOrders.length + cartOrders.length;
   const conversionRate =
     interestedCount > 0 ? (paidOrders.length / interestedCount) * 100 : 0;
+  const aiFaceDetectionCalls = studio?.usage?.aiFaceDetectionCalls ?? 0;
+  const aiPublicFaceSearchCalls = studio?.usage?.aiPublicFaceSearchCalls ?? 0;
 
   const moneyStats: MoneyStat[] = [
     {
@@ -245,6 +265,36 @@ export default function DashboardPage() {
         <GalleryPerformanceCard
           loading={loading}
           galleries={galleryPerformance}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ConsumptionCard
+          title="Consumo geral"
+          description="Uso atual da conta. Os limites entram quando os planos forem definidos."
+          loading={loading}
+          items={[
+            { label: 'Fotos', value: photoCount, icon: ImageIcon },
+            { label: 'Galerias', value: galleryCount, icon: Images },
+            { label: 'Álbuns', value: albumCount, icon: LayoutGrid },
+          ]}
+        />
+        <ConsumptionCard
+          title="Chamadas de IA"
+          description="Leituras de rosto na galeria e buscas públicas por face."
+          loading={loading}
+          items={[
+            {
+              label: 'Detecção em galerias',
+              value: aiFaceDetectionCalls,
+              icon: Sparkles,
+            },
+            {
+              label: 'Busca pública por rosto',
+              value: aiPublicFaceSearchCalls,
+              icon: Sparkles,
+            },
+          ]}
         />
       </div>
     </div>
@@ -492,6 +542,79 @@ function GalleryPerformanceCard({
         </ul>
       )}
     </Card>
+  );
+}
+
+function ConsumptionCard({
+  title,
+  description,
+  items,
+  loading,
+}: {
+  title: string;
+  description: string;
+  items: ConsumptionItem[];
+  loading: boolean;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="border-b border-border p-5">
+        <h2 className="text-base font-semibold text-ink">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+      </div>
+      <div className="space-y-4 p-5">
+        {items.map((item) => (
+          <ConsumptionBar
+            key={item.label}
+            item={item}
+            loading={loading}
+          />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function ConsumptionBar({
+  item,
+  loading,
+}: {
+  item: ConsumptionItem;
+  loading: boolean;
+}) {
+  const Icon = item.icon;
+  const fillWidth = `${Math.min(100, Math.max(8, item.value * 8))}%`;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+          <p className="truncate text-sm font-medium text-foreground">
+            {item.label}
+          </p>
+        </div>
+        {loading ? (
+          <Skeleton className="h-4 w-16" />
+        ) : (
+          <span className="shrink-0 text-sm font-medium tabular-nums text-ink">
+            {formatCount(item.value)}/∞
+          </span>
+        )}
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        {loading ? (
+          <Skeleton className="h-full w-full" />
+        ) : (
+          <div
+            className="h-full rounded-full bg-brand-500"
+            style={{ width: fillWidth }}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 

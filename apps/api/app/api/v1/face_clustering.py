@@ -143,6 +143,20 @@ def _public_face_search_enabled(studio_id: str) -> bool:
     return data.get("publicFaceSearchEnabled") is True
 
 
+def _increment_studio_usage(studio_id: str, field: str) -> None:
+    try:
+        get_firestore().collection("studios").document(studio_id).update(
+            {f"usage.{field}": Increment(1)}
+        )
+    except Exception:
+        logger.warning(
+            "Failed to increment studio usage %s for studio %s",
+            field,
+            studio_id,
+            exc_info=True,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -194,6 +208,8 @@ async def public_face_search(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Face search failed.",
         ) from None
+
+    _increment_studio_usage(studio_id, "aiPublicFaceSearchCalls")
 
     return PublicFaceSearchResponse(
         matches=[
@@ -250,6 +266,7 @@ def process_photo(
             )
 
     background.add_task(_run)
+    _increment_studio_usage(studio_id, "aiFaceDetectionCalls")
     return {"status": "queued", "photoId": body.photo_id}
 
 
