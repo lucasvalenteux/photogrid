@@ -22,10 +22,10 @@ interface DashboardHeaderProps {
   onOpenMobileMenu: () => void;
 }
 
-function initialsFromName(name: string | null | undefined, email: string | null | undefined) {
-  const source = (name && name.trim()) || email || '';
+function initialsFromStudioName(name: string | null | undefined) {
+  const source = name?.trim() ?? '';
   if (!source) return '?';
-  const parts = source.split(/[\s@]+/).filter(Boolean);
+  const parts = source.split(/\s+/).filter(Boolean);
   const first = parts[0]?.[0] ?? '';
   const second = parts[1]?.[0] ?? '';
   return (first + second || first || '?').toUpperCase();
@@ -33,7 +33,7 @@ function initialsFromName(name: string | null | undefined, email: string | null 
 
 export function DashboardHeader({ onOpenMobileMenu }: DashboardHeaderProps) {
   const router = useRouter();
-  const { studio, user } = useAuth();
+  const { studio } = useAuth();
 
   const onSignOut = async () => {
     try {
@@ -98,7 +98,7 @@ export function DashboardHeader({ onOpenMobileMenu }: DashboardHeaderProps) {
         </Tooltip>
 
         <Avatar>
-          <AvatarFallback>{initialsFromName(studio?.name, user?.email)}</AvatarFallback>
+          <AvatarFallback>{initialsFromStudioName(studio?.name)}</AvatarFallback>
         </Avatar>
       </div>
     </header>

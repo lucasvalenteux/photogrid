@@ -130,6 +130,7 @@ export default function DashboardPage() {
     interestedCount > 0 ? (paidOrders.length / interestedCount) * 100 : 0;
   const aiFaceDetectionCalls = studio?.usage?.aiFaceDetectionCalls ?? 0;
   const aiPublicFaceSearchCalls = studio?.usage?.aiPublicFaceSearchCalls ?? 0;
+  const showGettingStarted = !loading && photoCount === 0;
 
   const moneyStats: MoneyStat[] = [
     {
@@ -187,6 +188,8 @@ export default function DashboardPage() {
           <ArrowRight className="size-3.5" />
         </Link>
       </header>
+
+      {showGettingStarted ? <GettingStartedCard /> : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {moneyStats.map((stat) => (
@@ -298,6 +301,33 @@ export default function DashboardPage() {
         />
       </div>
     </div>
+  );
+}
+
+function GettingStartedCard() {
+  return (
+    <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 gap-3">
+        <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+          <Images className="size-5" aria-hidden="true" />
+        </span>
+        <div>
+          <h2 className="text-base font-semibold text-ink">
+            Comece sua loja de fotos
+          </h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Crie uma galeria, envie as primeiras fotos e publique para vender.
+          </p>
+        </div>
+      </div>
+      <Link
+        href={ROUTES.galleries}
+        className="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-700"
+      >
+        Ir para galerias
+        <ArrowRight className="size-4" />
+      </Link>
+    </Card>
   );
 }
 

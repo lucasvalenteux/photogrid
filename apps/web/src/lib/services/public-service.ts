@@ -57,6 +57,8 @@ export interface PublicGalleryCard {
    * gallery's own cover could otherwise leak a non-public photo.
    */
   coverPhotoUrl: string | null;
+  /** Number of photos visible from the storefront card. */
+  publicPhotoCount: number;
   /** Number of `public` albums inside this gallery — what the visitor will see. */
   publicAlbumCount: number;
 }
@@ -142,10 +144,14 @@ export async function fetchPublicGalleries(
     const coverPhotoUrl = isPublic
       ? gallery.coverPhotoUrl ?? albumsHere[0]?.coverPhotoUrl ?? null
       : albumsHere[0]?.coverPhotoUrl ?? null;
+    const publicPhotoCount = isPublic
+      ? gallery.photoCount
+      : new Set(albumsHere.flatMap((album) => album.photoIds)).size;
 
     cards.push({
       gallery,
       coverPhotoUrl,
+      publicPhotoCount,
       publicAlbumCount: albumsHere.length,
     });
   }

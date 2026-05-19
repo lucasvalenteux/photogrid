@@ -95,47 +95,56 @@ export default async function PublicStudioPage({ params }: Props) {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {galleries.map(({ gallery, coverPhotoUrl, publicAlbumCount }) => (
-              <Link
-                key={gallery.id}
-                href={ROUTES.publicGallery(studio.slug, gallery.id)}
-                className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
-              >
-                {coverPhotoUrl ? (
-                  <ProtectedPhoto
-                    src={coverPhotoUrl}
-                    alt={gallery.title}
-                    studioName={studio.name}
-                    studioUrl={studioUrl}
-                    studioLogoUrl={studio.logoUrl}
-                    security={coverSecurity}
-                    interactive="none"
-                    aspect="aspect-[5/4]"
-                    className="rounded-none"
-                  />
-                ) : (
-                  <div className="relative aspect-[5/4] w-full overflow-hidden bg-muted">
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-line text-xs font-medium uppercase tracking-wide text-mute">
-                      Sem capa
+            {galleries.map(
+              ({
+                gallery,
+                coverPhotoUrl,
+                publicAlbumCount,
+                publicPhotoCount,
+              }) => (
+                <Link
+                  key={gallery.id}
+                  href={ROUTES.publicGallery(studio.slug, gallery.id)}
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  {coverPhotoUrl ? (
+                    <ProtectedPhoto
+                      src={coverPhotoUrl}
+                      alt={gallery.title}
+                      studioName={studio.name}
+                      studioUrl={studioUrl}
+                      studioLogoUrl={studio.logoUrl}
+                      security={coverSecurity}
+                      interactive="none"
+                      aspect="aspect-[5/4]"
+                      className="rounded-none"
+                    />
+                  ) : (
+                    <div className="relative aspect-[5/4] w-full overflow-hidden bg-muted">
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-line text-xs font-medium uppercase tracking-wide text-mute">
+                        Sem capa
+                      </div>
                     </div>
-                  </div>
-                )}
-                <div className="space-y-1 p-5">
-                  <h2 className="text-base font-semibold tracking-tight text-ink">
-                    {gallery.title}
-                  </h2>
-                  {gallery.description ? (
-                    <p className="line-clamp-2 text-sm text-muted-foreground">
-                      {gallery.description}
+                  )}
+                  <div className="space-y-1 p-5">
+                    <h2 className="text-base font-semibold tracking-tight text-ink">
+                      {gallery.title}
+                    </h2>
+                    {gallery.description ? (
+                      <p className="line-clamp-2 text-sm text-muted-foreground">
+                        {gallery.description}
+                      </p>
+                    ) : null}
+                    <p className="pt-2 text-xs text-muted-foreground">
+                      {publicPhotoCount}{' '}
+                      {publicPhotoCount === 1 ? 'foto' : 'fotos'} ·{' '}
+                      {publicAlbumCount}{' '}
+                      {publicAlbumCount === 1 ? 'álbum' : 'álbuns'}
                     </p>
-                  ) : null}
-                  <p className="pt-2 text-xs text-muted-foreground">
-                    {publicAlbumCount}{' '}
-                    {publicAlbumCount === 1 ? 'álbum' : 'álbuns'}
-                  </p>
-                </div>
-              </Link>
-            ))}
+                  </div>
+                </Link>
+              ),
+            )}
           </div>
         )}
       </section>
