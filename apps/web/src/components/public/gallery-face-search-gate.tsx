@@ -43,7 +43,7 @@ export function GalleryFaceSearchGate({
         Buscar pelo rosto
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Envie uma foto para encontrar imagens.
+        Envie uma foto do rosto para encontrar suas imagens desta galeria.
       </p>
 
       <input

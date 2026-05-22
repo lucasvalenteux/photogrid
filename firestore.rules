@@ -36,10 +36,10 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/studios/$(studioId)).data.ownerId == request.auth.uid;
     }
 
-    // Accepts public/unlisted/private — or absent (legacy docs default to public).
+    // Accepts public/unlisted/face_gated/private — or absent (legacy → public).
     function validVisibility(data) {
       return !('visibility' in data)
-        || data.visibility in ['public', 'unlisted', 'private'];
+        || data.visibility in ['public', 'unlisted', 'face_gated', 'private'];
     }
 
     // ---------- USERS ----------
@@ -88,7 +88,7 @@ service cloud.firestore {
 
     // ---------- GALLERIES ----------
     // Note: read is intentionally `true` — visibility (`public`/`unlisted`/
-    // `private`) is enforced at the application layer because Firestore
+    // `face_gated`/`private`) is enforced at the application layer because Firestore
     // rules can't differentiate "direct lookup with the id" from "scan".
     // Random ids are practically un-guessable; `private` is additionally
     // hidden by route-level 404s in the public storefront.

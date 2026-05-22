@@ -14,6 +14,9 @@ const config: NextConfig = {
     ],
   },
   poweredByHeader: false,
+  async rewrites() {
+    return [{ source: '/favicon.ico', destination: '/favicon.svg' }];
+  },
 };
 
 export default config;

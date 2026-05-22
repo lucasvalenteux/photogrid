@@ -40,6 +40,9 @@ import type {
  *     never `private` ones — except `fetchPublicGalleryWithAccess` will
  *     still resolve a `private` gallery in "albums-only" mode when at
  *     least one of its albums is public.
+ *   - Album detail pages never breadcrumb back to a non-`public`
+ *     gallery (see `shouldShowGalleryBreadcrumbOnAlbumPage`) so a
+ *     link-only album does not hand visitors the parent gallery URL.
  */
 
 /**
@@ -157,6 +160,43 @@ export async function fetchPublicGalleries(
     });
   }
   return cards;
+}
+
+/** Raw gallery read — no visibility gate (used to validate album pages). */
+export async function fetchGalleryDoc(galleryId: string): Promise<GalleryDoc | null> {
+  const snap = await getDoc(galleryDoc(galleryId));
+  return snap.exists() ? snap.data() : null;
+}
+
+/**
+ * Whether the public album detail route may render. Link-only albums
+ * (`unlisted`) are allowed even when the parent gallery is also
+ * link-only or `private`; face-gated galleries use a separate flow.
+ */
+export function canAccessPublicAlbumPage(gallery: GalleryDoc, album: AlbumDoc): boolean {
+  if (album.galleryId !== gallery.id || album.studioId !== gallery.studioId) {
+    return false;
+  }
+  const albumVis = effectiveVisibility(album.visibility);
+  if (albumVis === 'private') return false;
+
+  const galleryVis = effectiveVisibility(gallery.visibility);
+  if (galleryVis === 'face_gated') return false;
+  if (galleryVis === 'private') {
+    return albumVis === 'public' || albumVis === 'unlisted';
+  }
+  return true;
+}
+
+/**
+ * Album pages link back to the parent gallery only when that gallery
+ * is `public` on the studio storefront. Link-only (`unlisted` /
+ * `private` / `face_gated`) galleries must not be one click away
+ * from a link-only album — that would expose every photo and sibling
+ * album on the gallery page.
+ */
+export function shouldShowGalleryBreadcrumbOnAlbumPage(gallery: GalleryDoc): boolean {
+  return effectiveVisibility(gallery.visibility) === 'public';
 }
 
 export async function fetchPublicGalleryWithAccess(

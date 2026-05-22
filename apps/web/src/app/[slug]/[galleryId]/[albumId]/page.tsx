@@ -9,10 +9,12 @@ import { AddToCartButton } from '@/components/public/add-to-cart-button';
 import { StorefrontPhotoGrid } from '@/components/public/storefront-photo-grid';
 import { StorefrontShell } from '@/components/public/storefront-shell';
 import {
+  canAccessPublicAlbumPage,
+  fetchGalleryDoc,
   fetchPhotosByIds,
   fetchPublicAlbum,
-  fetchPublicGalleryWithAccess,
   fetchPublicStudioBySlug,
+  shouldShowGalleryBreadcrumbOnAlbumPage,
 } from '@/lib/services/public-service';
 import { effectiveStudioSecurity, resolveGalleryPrices } from '@/types';
 
@@ -40,24 +42,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PublicAlbumPage({ params }: Props) {
   const { slug, galleryId, albumId } = await params;
-  // We use the access-aware fetch here too — a public album inside a
-  // private gallery is still reachable, and we need the gallery doc to
-  // render the breadcrumb back to the gallery page.
-  const [studio, access, album] = await Promise.all([
+  const [studio, gallery, album] = await Promise.all([
     fetchPublicStudioBySlug(slug),
-    fetchPublicGalleryWithAccess(galleryId),
+    fetchGalleryDoc(galleryId),
     fetchPublicAlbum(albumId),
   ]);
   if (
     !studio ||
-    !access ||
+    !gallery ||
     !album ||
-    access.gallery.studioId !== studio.id ||
-    album.galleryId !== access.gallery.id
+    gallery.studioId !== studio.id ||
+    !canAccessPublicAlbumPage(gallery, album)
   ) {
     notFound();
   }
-  const gallery = access.gallery;
+  const showGalleryBreadcrumb = shouldShowGalleryBreadcrumbOnAlbumPage(gallery);
 
   const photos = await fetchPhotosByIds(album.photoIds);
   const security = effectiveStudioSecurity(studio);
@@ -67,13 +66,23 @@ export default async function PublicAlbumPage({ params }: Props) {
   return (
     <StorefrontShell studio={studio}>
       <section className="container-app py-10 sm:py-14">
-        <Link
-          href={ROUTES.publicGallery(studio.slug, gallery.id)}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ChevronLeft className="size-4" />
-          {gallery.title}
-        </Link>
+        {showGalleryBreadcrumb ? (
+          <Link
+            href={ROUTES.publicGallery(studio.slug, gallery.id)}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" />
+            {gallery.title}
+          </Link>
+        ) : (
+          <Link
+            href={ROUTES.studio(studio.slug)}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ChevronLeft className="size-4" />
+            Voltar para {studio.name}
+          </Link>
+        )}
 
         <header className="mt-6 flex flex-wrap items-end justify-between gap-3">
           <div>
