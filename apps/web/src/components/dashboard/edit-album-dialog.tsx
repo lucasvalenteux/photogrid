@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 
-import { effectiveVisibility, type Visibility } from '@photogrid/config';
+import { ALBUM_VISIBILITY_LEVELS, effectiveVisibility, type Visibility } from '@photogrid/config';
 import {
   Button,
   Dialog,
@@ -94,6 +94,7 @@ export function EditAlbumDialog({
             onChange={setVisibility}
             disabled={submitting}
             label="Quem pode ver?"
+            levels={ALBUM_VISIBILITY_LEVELS}
           />
 
           <DialogFooter>

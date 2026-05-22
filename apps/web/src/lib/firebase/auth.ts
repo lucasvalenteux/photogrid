@@ -1,5 +1,6 @@
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   type User,
@@ -23,6 +24,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   'auth/network-request-failed': 'Falha de rede. Verifique sua conexão.',
   'auth/operation-not-allowed':
     'Login por email/senha não está habilitado neste projeto Firebase.',
+  'auth/missing-email': 'Informe um email válido.',
 };
 
 /** Whether this auth result corresponds to a newly-created account. */
@@ -144,6 +146,10 @@ export async function createUser(
     password,
   );
   return { credential, outcome: 'created' };
+}
+
+export async function sendPasswordReset(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email.trim().toLowerCase());
 }
 
 export async function signOut(): Promise<void> {

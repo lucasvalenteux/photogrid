@@ -34,6 +34,7 @@ class Gallery(_Base):
     cover_photo_url: str | None = Field(default=None, alias="coverPhotoUrl")
     photo_count: int = Field(default=0, alias="photoCount")
     album_count: int = Field(default=0, alias="albumCount")
+    visibility: str | None = None
     created_at: datetime = Field(alias="createdAt")
 
 

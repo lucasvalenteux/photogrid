@@ -82,6 +82,34 @@ interface EnqueuePhotoInput {
  * upload path ignores the return, but `reprocessGalleryPhotos` uses it to
  * keep a running success count for the toast feedback.
  */
+/**
+ * Tell the API to drop a photo from face-cluster suggestions. Called before
+ * the Firestore photo doc is deleted so cluster counters stay accurate.
+ */
+export async function notifyPhotoRemovedFromClusters(
+  photo: Pick<PhotoDoc, 'id' | 'galleryId'>,
+): Promise<void> {
+  if (!ENABLED) return;
+  try {
+    const resp = await authedFetch(
+      `/api/v1/face-clustering/photos/${encodeURIComponent(photo.id)}/removed`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ galleryId: photo.galleryId }),
+      },
+    );
+    if (!resp.ok) {
+      console.warn(
+        '[face-clustering] photo removal sync rejected',
+        resp.status,
+        await resp.text().catch(() => ''),
+      );
+    }
+  } catch (error) {
+    console.warn('[face-clustering] photo removal sync failed', error);
+  }
+}
+
 export async function enqueuePhotoForClustering({
   photo,
   force = false,
@@ -118,6 +146,39 @@ export interface PublicFaceSearchMatch {
   photoId: string;
   galleryId: string;
   score: number;
+}
+
+export async function searchGalleryFaces({
+  galleryId,
+  file,
+}: {
+  galleryId: string;
+  file: File;
+}): Promise<PublicFaceSearchMatch[]> {
+  if (!ENABLED) {
+    throw new Error('A busca por face ainda não está disponível.');
+  }
+
+  const form = new FormData();
+  form.append('image', file);
+
+  const resp = await fetch(
+    apiUrl(
+      `/api/v1/face-clustering/public/galleries/${encodeURIComponent(galleryId)}/search`,
+    ),
+    {
+      method: 'POST',
+      body: form,
+    },
+  );
+
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => '');
+    throw new Error(`Falha na busca por face: ${resp.status} ${detail}`);
+  }
+
+  const payload = (await resp.json()) as { matches?: PublicFaceSearchMatch[] };
+  return payload.matches ?? [];
 }
 
 export async function searchPublicFaces({

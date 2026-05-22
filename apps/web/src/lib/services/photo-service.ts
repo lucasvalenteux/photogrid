@@ -19,6 +19,7 @@ import {
 
 import { deletePhotoObject, uploadPhoto } from '@/lib/firebase/storage';
 import { galleryDoc, photoDoc, photosCollection } from '@/lib/firebase/firestore';
+import { notifyPhotoRemovedFromClusters } from '@/lib/services/face-clustering-service';
 import type { PhotoDoc } from '@/types';
 
 /** Maximum thumbnail edge in pixels — keeps grids fast without distorting the preview. */
@@ -179,6 +180,7 @@ export async function uploadAndCommitPhoto({
 }
 
 export async function deletePhoto(photo: PhotoDoc): Promise<void> {
+  await notifyPhotoRemovedFromClusters(photo);
   await deleteDoc(photoDoc(photo.id));
 
   // The Firestore document is the source of truth for the gallery UI. Storage

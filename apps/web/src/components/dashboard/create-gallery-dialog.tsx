@@ -17,6 +17,7 @@ import {
 } from '@photogrid/ui';
 
 import { VisibilitySelector } from '@/components/dashboard/visibility-selector';
+import { VISIBILITY_LEVELS } from '@photogrid/config';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { createGallery } from '@/lib/services/gallery-service';
 
@@ -118,6 +119,7 @@ export function CreateGalleryDialog({
             onChange={setVisibility}
             disabled={submitting}
             label="Quem pode ver?"
+            levels={VISIBILITY_LEVELS}
           />
 
           <DialogFooter>

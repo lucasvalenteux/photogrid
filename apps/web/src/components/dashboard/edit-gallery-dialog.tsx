@@ -3,7 +3,11 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 
-import { effectiveVisibility, type Visibility } from '@photogrid/config';
+import {
+  effectiveVisibility,
+  VISIBILITY_LEVELS,
+  type Visibility,
+} from '@photogrid/config';
 import {
   Button,
   Dialog,
@@ -109,6 +113,7 @@ export function EditGalleryDialog({
             onChange={setVisibility}
             disabled={submitting}
             label="Quem pode ver?"
+            levels={VISIBILITY_LEVELS}
           />
 
           <DialogFooter>

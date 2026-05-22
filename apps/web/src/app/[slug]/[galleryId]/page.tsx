@@ -5,6 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 
 import { APP_DOMAIN, ROUTES } from '@photogrid/config';
 
+import { GalleryFaceGatedView } from '@/components/public/gallery-face-gated-view';
 import { StorefrontAlbumCard } from '@/components/public/storefront-album-card';
 import { StorefrontPhotoGrid } from '@/components/public/storefront-photo-grid';
 import { StorefrontShell } from '@/components/public/storefront-shell';
@@ -89,6 +90,23 @@ export default async function PublicGalleryPage({ params }: Props) {
             </p>
           ) : null}
         </header>
+
+        {accessMode === 'face-gated' ? (
+          <GalleryFaceGatedView
+            studio={{
+              id: studio.id,
+              name: studio.name,
+              slug: studio.slug,
+              logoUrl: studio.logoUrl,
+            }}
+            gallery={{ id: gallery.id, title: gallery.title }}
+            studioUrl={studioUrl}
+            security={security}
+            pricePerPhotoCents={prices.pricePerPhotoCents}
+            pricePerAlbumCents={prices.pricePerAlbumCents}
+            albums={albums}
+          />
+        ) : null}
 
         {accessMode === 'full' ? (
           <section className="mt-10 space-y-4">

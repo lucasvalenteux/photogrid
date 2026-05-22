@@ -11,6 +11,7 @@ import { Button, Input, Label } from '@photogrid/ui';
 
 import {
   createUser,
+  sendPasswordReset,
   signInOrCreate,
   signInUser,
   toAuthError,
@@ -76,6 +77,7 @@ export function LoginForm() {
     React.useState<EmailLookupResult>('unknown');
   const [password, setPassword] = React.useState('');
   const [submitting, setSubmitting] = React.useState(false);
+  const [resettingPassword, setResettingPassword] = React.useState(false);
   const [redirecting, setRedirecting] = React.useState(false);
 
   const passwordRef = React.useRef<HTMLInputElement>(null);
@@ -89,7 +91,9 @@ export function LoginForm() {
     target?.focus();
   }, [step]);
 
-  const loading = submitting || redirecting;
+  const loading = submitting || redirecting || resettingPassword;
+  const showForgotPassword =
+    step === 'password' && emailStatus !== 'new';
 
   const navigateAfterAuth = React.useCallback((authenticatedEmail: string) => {
     setRedirecting(true);
@@ -178,6 +182,21 @@ export function LoginForm() {
     setPassword('');
   };
 
+  const onForgotPassword = async () => {
+    if (loading || !email.trim()) return;
+    setResettingPassword(true);
+    try {
+      await sendPasswordReset(email);
+      toast.success(
+        'Enviamos um email com o link para redefinir sua senha. Confira a caixa de entrada e o spam.',
+      );
+    } catch (error) {
+      toast.error(toAuthError(error).message);
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const buttonLabel = (() => {
     if (step === 'email') return loading ? 'Verificando…' : 'Continuar';
     if (redirecting) return 'Redirecionando…';
@@ -186,7 +205,7 @@ export function LoginForm() {
   })();
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-8 shadow-lg">
+    <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-lg">
       <Header
         step={step}
         emailStatus={emailStatus}
@@ -195,13 +214,15 @@ export function LoginForm() {
         disabled={loading}
       />
 
-      <form onSubmit={onSubmit} className="space-y-4" noValidate>
+      <form onSubmit={onSubmit} className="mx-auto w-full max-w-sm space-y-4" noValidate>
         {/* Email field — always rendered. On step 2 it stays hidden
             from view but mounted, so password managers can pair it
             with the password field and we never have to play the
             mount/unmount roulette inside the form. */}
-        <div className={step === 'email' ? 'space-y-1.5' : 'hidden'}>
-          <Label htmlFor="email">Email</Label>
+        <div className={step === 'email' ? 'space-y-1.5 text-center' : 'hidden'}>
+          <Label htmlFor="email" className="block">
+            Email
+          </Label>
           <Input
             id="email"
             ref={emailRef}
@@ -225,9 +246,9 @@ export function LoginForm() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="space-y-1.5"
+              className="space-y-2 text-center"
             >
-              <Label htmlFor="password">
+              <Label htmlFor="password" className="block">
                 {emailStatus === 'new' ? 'Crie uma senha' : 'Sua senha'}
               </Label>
               <Input
@@ -250,6 +271,16 @@ export function LoginForm() {
                   ? 'Use ao menos 8 caracteres. Essa senha protege seu estúdio.'
                   : 'A senha que você cadastrou ao criar a conta.'}
               </p>
+              {showForgotPassword ? (
+                <button
+                  type="button"
+                  onClick={onForgotPassword}
+                  disabled={loading}
+                  className="text-xs font-medium text-brand-600 underline decoration-brand-600 underline-offset-4 transition-colors hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {resettingPassword ? 'Enviando…' : 'Esqueci minha senha'}
+                </button>
+              ) : null}
             </motion.div>
           ) : null}
         </AnimatePresence>
@@ -280,11 +311,11 @@ interface HeaderProps {
 function Header({ step, emailStatus, email, onBack, disabled }: HeaderProps) {
   if (step === 'email') {
     return (
-      <div className="mb-6">
+      <div className="mb-6 space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight text-ink">
           Entre no Photogrid
         </h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Use seu email para entrar. Se for sua primeira vez, criamos sua conta
           automaticamente.
         </p>
@@ -300,21 +331,18 @@ function Header({ step, emailStatus, email, onBack, disabled }: HeaderProps) {
         : 'Continue para o Photogrid';
 
   return (
-    <div className="mb-6">
+    <div className="mb-6 space-y-2">
       <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-sm">
-        <span className="text-muted-foreground">{email}</span>
-        <span className="text-muted-foreground/60">·</span>
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={disabled}
-          className="inline-flex items-center gap-1 text-brand-600 transition-colors hover:text-brand-700 focus-visible:outline-none focus-visible:underline disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <ArrowLeft className="size-3" />
-          Trocar email
-        </button>
-      </div>
+      <p className="text-sm text-muted-foreground">{email}</p>
+      <button
+        type="button"
+        onClick={onBack}
+        disabled={disabled}
+        className="inline-flex items-center justify-center gap-1 text-sm text-brand-600 underline decoration-brand-600 underline-offset-4 transition-colors hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <ArrowLeft className="size-3" />
+        Trocar email
+      </button>
     </div>
   );
 }

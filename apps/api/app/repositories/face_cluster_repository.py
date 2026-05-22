@@ -8,7 +8,7 @@ from google.cloud.firestore import Client as FirestoreClient
 from google.cloud.firestore_v1 import ArrayUnion, Increment
 
 from app.domain.models import FaceCluster
-from app.repositories.collections import FACE_CLUSTERS
+from app.repositories.collections import FACE_CLUSTERS, PHOTOS
 
 
 class FaceClusterRepository:
@@ -161,21 +161,41 @@ class FaceClusterRepository:
         """Hard-delete a single cluster doc."""
         self._col.document(cluster_id).delete()
 
-    def remove_photo(self, cluster_id: str, photo_id: str) -> None:
-        """Hard-delete the photo from a cluster.
+    def representative_from_photo(self, photo_id: str) -> dict | None:
+        """Build a minimal representative snapshot from a surviving photo."""
+        snap = self._db.collection(PHOTOS).document(photo_id).get()
+        if not snap.exists:
+            return None
+        data = snap.to_dict() or {}
+        return {
+            "representativePhotoId": photo_id,
+            "representativePhotoUrl": data.get("imageUrl"),
+            "representativeThumbnailUrl": data.get("thumbnailUrl"),
+            "representativeBbox": None,
+            "representativeScore": 0.0,
+        }
 
-        Used when a photo is removed from the gallery — keeping orphan ids
-        around would mislead the UI counters.
+    def set_cluster_photos(
+        self,
+        cluster_id: str,
+        *,
+        photo_ids: list[str],
+        representative: dict | None = None,
+    ) -> None:
+        """Replace cluster membership with an explicit photo list.
+
+        Used after a photo is deleted from the gallery so counters stay in
+        sync with the surviving ids (``Increment`` on a sparse array is
+        unreliable).
         """
-        from google.cloud.firestore_v1 import ArrayRemove
-
-        self._col.document(cluster_id).update(
-            {
-                "photoIds": ArrayRemove([photo_id]),
-                "photoCount": Increment(-1),
-                "updatedAt": datetime.now(timezone.utc),
-            }
-        )
+        patch: dict = {
+            "photoIds": photo_ids,
+            "photoCount": len(photo_ids),
+            "updatedAt": datetime.now(timezone.utc),
+        }
+        if representative is not None:
+            patch.update(representative)
+        self._col.document(cluster_id).update(patch)
 
     def delete_for_gallery(self, gallery_id: str) -> int:
         """Delete every cluster of a gallery — used when the gallery itself

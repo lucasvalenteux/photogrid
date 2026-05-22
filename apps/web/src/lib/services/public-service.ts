@@ -76,7 +76,7 @@ export interface PublicGalleryCard {
  */
 export interface PublicGalleryAccess {
   gallery: GalleryDoc;
-  access: 'full' | 'albums-only';
+  access: 'full' | 'albums-only' | 'face-gated';
 }
 
 export interface PublicFaceSearchIndex {
@@ -136,15 +136,16 @@ export async function fetchPublicGalleries(
   //    album inside (passthrough).
   const cards: PublicGalleryCard[] = [];
   for (const gallery of galleries) {
-    const isPublic = effectiveVisibility(gallery.visibility) === 'public';
+    const visibility = effectiveVisibility(gallery.visibility);
+    const isListed = visibility === 'public' || visibility === 'face_gated';
     const albumsHere = albumsByGallery.get(gallery.id) ?? [];
 
-    if (!isPublic && albumsHere.length === 0) continue;
+    if (!isListed && albumsHere.length === 0) continue;
 
-    const coverPhotoUrl = isPublic
+    const coverPhotoUrl = isListed
       ? gallery.coverPhotoUrl ?? albumsHere[0]?.coverPhotoUrl ?? null
       : albumsHere[0]?.coverPhotoUrl ?? null;
-    const publicPhotoCount = isPublic
+    const publicPhotoCount = isListed
       ? gallery.photoCount
       : new Set(albumsHere.flatMap((album) => album.photoIds)).size;
 
@@ -165,6 +166,10 @@ export async function fetchPublicGalleryWithAccess(
   if (!snap.exists()) return null;
   const gallery = snap.data();
   const visibility = effectiveVisibility(gallery.visibility);
+
+  if (visibility === 'face_gated') {
+    return { gallery, access: 'face-gated' };
+  }
 
   // Public or unlisted: link holders see everything (photos + public
   // albums). This matches the original behaviour.
@@ -189,7 +194,8 @@ export async function fetchPublicGallery(galleryId: string): Promise<GalleryDoc 
   const snap = await getDoc(galleryDoc(galleryId));
   if (!snap.exists()) return null;
   const data = snap.data();
-  if (effectiveVisibility(data.visibility) === 'private') return null;
+  const visibility = effectiveVisibility(data.visibility);
+  if (visibility === 'private' || visibility === 'face_gated') return null;
   return data;
 }
 

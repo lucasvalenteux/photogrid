@@ -5,11 +5,14 @@ based pipeline:
 
   - ``POST   /process-photo``                 process one photo (auto-run on
                                               upload by the web app)
+  - ``POST   /photos/{id}/removed``           drop a photo from clusters when
+                                              the owner deletes it
   - ``GET    /galleries/{id}/clusters``       list cluster suggestions
   - ``POST   /clusters/{id}/promote``         turn a cluster into an album
   - ``POST   /clusters/{id}/dismiss``         hide a cluster from suggestions
   - ``POST   /public/studios/{id}/search``    search public storefront photos
                                               from a visitor face upload
+  - ``POST   /public/galleries/{id}/search``  face-gated gallery unlock search
 """
 
 from __future__ import annotations
@@ -89,6 +92,10 @@ class PromoteClusterBody(BaseModel):
     # The web app passes the gallery title so we can use it to derive the
     # album title in the format "Gallery title #01".
     gallery_title: str = Field(min_length=1, alias="galleryTitle")
+
+
+class PhotoRemovedBody(BaseModel):
+    gallery_id: str = Field(min_length=1, alias="galleryId")
 
 
 class PublicFaceSearchMatch(BaseModel):
@@ -220,6 +227,62 @@ async def public_face_search(
 
 
 @router.post(
+    "/public/galleries/{gallery_id}/search",
+    response_model=PublicFaceSearchResponse,
+    summary="Face search scoped to a face-gated gallery",
+)
+async def public_gallery_face_search(
+    gallery_id: str,
+    galleries: GalleryRepoDep,
+    clustering: FaceClusteringServiceDep,
+    image: UploadFile = File(...),
+) -> PublicFaceSearchResponse:
+    """Unlock photos inside a partially-private gallery via face match."""
+    gallery = galleries.get_by_id(gallery_id)
+    if gallery is None or gallery.visibility != "face_gated":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Gallery not found.",
+        )
+
+    content_type = image.content_type or ""
+    if not content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Upload an image file.",
+        )
+
+    data = await image.read()
+    if len(data) > 8 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Image is too large.",
+        )
+
+    try:
+        raw_matches = clustering.search_gallery_by_face(
+            gallery_id=gallery_id,
+            studio_id=gallery.studio_id,
+            image_bytes=data,
+        )
+    except Exception:
+        logger.exception("Gallery face search failed for gallery %s", gallery_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Face search failed.",
+        ) from None
+
+    _increment_studio_usage(gallery.studio_id, "aiPublicFaceSearchCalls")
+
+    return PublicFaceSearchResponse(
+        matches=[
+            PublicFaceSearchMatch.model_validate(match)
+            for match in raw_matches
+        ]
+    )
+
+
+@router.post(
     "/process-photo",
     summary="Detect faces in a photo and update clusters incrementally",
     status_code=status.HTTP_202_ACCEPTED,
@@ -268,6 +331,36 @@ def process_photo(
     background.add_task(_run)
     _increment_studio_usage(studio_id, "aiFaceDetectionCalls")
     return {"status": "queued", "photoId": body.photo_id}
+
+
+@router.post(
+    "/photos/{photo_id}/removed",
+    summary="Remove a deleted photo from face clusters",
+    status_code=status.HTTP_200_OK,
+)
+def photo_removed(
+    photo_id: str,
+    body: PhotoRemovedBody,
+    user: CurrentUser,
+    service: StudioServiceDep,
+    galleries: GalleryRepoDep,
+    clustering: FaceClusteringServiceDep,
+) -> dict[str, int]:
+    """Sync cluster suggestions after the dashboard deletes a photo.
+
+    The web client calls this before deleting the Firestore photo doc so we
+    can still read surviving photo metadata for representative thumbnails.
+    """
+    studio_id = _require_studio_id(user.uid, service)
+    gallery = galleries.get_by_id(body.gallery_id)
+    if gallery is None or gallery.studio_id != studio_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gallery not found."
+        )
+    return clustering.handle_photo_deleted(
+        photo_id=photo_id,
+        gallery_id=body.gallery_id,
+    )
 
 
 @router.get(

@@ -69,29 +69,50 @@ export const STORAGE_PATHS = {
  *   public   — appears on the studio home and is reachable by direct link.
  *   unlisted — does not show up in any public listing, but anyone holding
  *              the direct link can open it. Useful for "soft" shares.
+ *   face_gated — appears on the studio home with cover, but visitors must
+ *                upload a face photo to search and unlock matching photos
+ *                inside that gallery.
  *   private  — only owners may view. Public requests return 404, even with
  *              the direct link.
  *
  * Existing docs without an explicit `visibility` field are treated as
  * `public` for backwards compatibility (see `effectiveVisibility`).
  */
-export const VISIBILITY_LEVELS = ['public', 'unlisted', 'private'] as const;
+export const VISIBILITY_LEVELS = [
+  'public',
+  'unlisted',
+  'face_gated',
+  'private',
+] as const;
 export type Visibility = (typeof VISIBILITY_LEVELS)[number];
+
+/** Albums use the classic three levels — face gating is gallery-only. */
+export const ALBUM_VISIBILITY_LEVELS = [
+  'public',
+  'unlisted',
+  'private',
+] as const satisfies readonly Visibility[];
 
 export const VISIBILITY_LABELS: Record<Visibility, string> = {
   public: 'Público',
   unlisted: 'Apenas com link',
+  face_gated: 'Parcialmente privado',
   private: 'Privado',
 };
 
 export const VISIBILITY_DESCRIPTIONS: Record<Visibility, string> = {
   public: 'Aparece na página do estúdio. Qualquer pessoa pode acessar.',
   unlisted: 'Não aparece em listas. Só quem tem o link consegue abrir.',
+  face_gated:
+    'Aparece na loja com capa. Quem entrar precisa buscar pelo rosto para ver as fotos compatíveis.',
   private: 'Só você consegue visualizar. O link público não funciona.',
 };
 
 export function effectiveVisibility(value: unknown): Visibility {
-  return value === 'unlisted' || value === 'private' ? value : 'public';
+  if (value === 'unlisted') return 'unlisted';
+  if (value === 'private') return 'private';
+  if (value === 'face_gated') return 'face_gated';
+  return 'public';
 }
 
 export const SLUG_MIN_LENGTH = 3;

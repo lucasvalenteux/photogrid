@@ -336,6 +336,98 @@ class FaceClusteringService:
             reverse=True,
         )
 
+    def search_gallery_by_face(
+        self,
+        *,
+        gallery_id: str,
+        studio_id: str,
+        image_bytes: bytes,
+        threshold: float = PUBLIC_SEARCH_THRESHOLD,
+    ) -> list[dict[str, str | float]]:
+        """Like studio search, but only returns photos from one gallery."""
+        matches = self.search_studio_by_face(
+            studio_id=studio_id,
+            image_bytes=image_bytes,
+            threshold=threshold,
+        )
+        return [match for match in matches if match["galleryId"] == gallery_id]
+
+    def handle_photo_deleted(
+        self,
+        *,
+        photo_id: str,
+        gallery_id: str,
+    ) -> dict[str, int]:
+        """Remove a photo from gallery clusters after the owner deletes it.
+
+        The web app calls this *before* deleting the Firestore photo doc so
+        we can still resolve surviving ids. Suggestions with no remaining
+        photos are dropped so the dashboard does not keep stale rows.
+        """
+        try:
+            self._photo_faces.delete(photo_id)
+        except Exception:
+            logger.exception("photo %s: failed to delete photoFaces doc", photo_id)
+
+        updated = 0
+        deleted = 0
+        for cluster in self._clusters.list_for_gallery(gallery_id):
+            if photo_id not in cluster.photo_ids:
+                continue
+
+            remaining = [pid for pid in cluster.photo_ids if pid != photo_id]
+            if not remaining:
+                if cluster.status != "promoted":
+                    try:
+                        self._clusters.delete(cluster.id)
+                        deleted += 1
+                    except Exception:
+                        logger.exception(
+                            "photo %s: failed to delete empty cluster %s",
+                            photo_id,
+                            cluster.id,
+                        )
+                else:
+                    try:
+                        self._clusters.set_cluster_photos(
+                            cluster.id,
+                            photo_ids=[],
+                            representative=_cleared_representative(),
+                        )
+                        updated += 1
+                    except Exception:
+                        logger.exception(
+                            "photo %s: failed to clear promoted cluster %s",
+                            photo_id,
+                            cluster.id,
+                        )
+                continue
+
+            representative: dict | None = None
+            if cluster.representative_photo_id == photo_id:
+                representative = _cleared_representative()
+                for candidate in remaining:
+                    snapshot = self._clusters.representative_from_photo(candidate)
+                    if snapshot is not None:
+                        representative = snapshot
+                        break
+
+            try:
+                self._clusters.set_cluster_photos(
+                    cluster.id,
+                    photo_ids=remaining,
+                    representative=representative,
+                )
+                updated += 1
+            except Exception:
+                logger.exception(
+                    "photo %s: failed to update cluster %s after removal",
+                    photo_id,
+                    cluster.id,
+                )
+
+        return {"updated": updated, "deleted": deleted}
+
     # ---------------------------------------------------------- consolidation
 
     def consolidate_clusters(self, gallery_id: str) -> int:
@@ -578,6 +670,16 @@ def _extract_faces_from_bytes(data: bytes) -> list[DetectedFace]:
             )
         )
     return extracted
+
+
+def _cleared_representative() -> dict:
+    return {
+        "representativePhotoId": None,
+        "representativePhotoUrl": None,
+        "representativeThumbnailUrl": None,
+        "representativeBbox": None,
+        "representativeScore": 0.0,
+    }
 
 
 def _detect_faces(image_bgr: np.ndarray):

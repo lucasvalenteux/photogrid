@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Eye, EyeOff, Link as LinkIcon, Lock } from 'lucide-react';
+import { Eye, EyeOff, Link as LinkIcon, Lock, ScanFace } from 'lucide-react';
 
 import {
   VISIBILITY_DESCRIPTIONS,
@@ -17,11 +17,14 @@ interface VisibilitySelectorProps {
   disabled?: boolean;
   /** Customise the surrounding label text — useful per-entity (galeria / álbum). */
   label?: string;
+  /** Defaults to all levels; albums pass `ALBUM_VISIBILITY_LEVELS`. */
+  levels?: readonly Visibility[];
 }
 
 const ICONS: Record<Visibility, React.ComponentType<{ className?: string }>> = {
   public: Eye,
   unlisted: LinkIcon,
+  face_gated: ScanFace,
   private: Lock,
 };
 
@@ -36,6 +39,7 @@ export function VisibilitySelector({
   onChange,
   disabled,
   label = 'Visibilidade',
+  levels = VISIBILITY_LEVELS,
 }: VisibilitySelectorProps) {
   const name = React.useId();
 
@@ -43,7 +47,7 @@ export function VisibilitySelector({
     <fieldset className="space-y-2" disabled={disabled}>
       <legend className="text-sm font-medium text-foreground">{label}</legend>
       <div className="grid grid-cols-1 gap-2">
-        {VISIBILITY_LEVELS.map((level) => {
+        {levels.map((level) => {
           const Icon = ICONS[level] ?? EyeOff;
           const checked = value === level;
           return (
@@ -109,7 +113,9 @@ export function VisibilityBadge({ visibility, className }: VisibilityBadgeProps)
       ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
       : visibility === 'unlisted'
         ? 'bg-amber-50 text-amber-700 ring-amber-200'
-        : 'bg-slate-100 text-slate-700 ring-slate-300';
+        : visibility === 'face_gated'
+          ? 'bg-brand-50 text-brand-700 ring-brand-200'
+          : 'bg-slate-100 text-slate-700 ring-slate-300';
 
   return (
     <span

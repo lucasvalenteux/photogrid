@@ -17,6 +17,7 @@ import {
 } from '@photogrid/ui';
 
 import { VisibilitySelector } from '@/components/dashboard/visibility-selector';
+import { ALBUM_VISIBILITY_LEVELS } from '@photogrid/config';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { createAlbum } from '@/lib/services/album-service';
 
@@ -115,6 +116,7 @@ export function CreateAlbumDialog({
             onChange={setVisibility}
             disabled={submitting}
             label="Quem pode ver?"
+            levels={ALBUM_VISIBILITY_LEVELS}
           />
 
           <DialogFooter>
