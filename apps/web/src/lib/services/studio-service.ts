@@ -85,11 +85,10 @@ export async function createStudio({
       createdAt: serverTimestamp(),
     });
 
-    transaction.set(
-      userDoc(ownerId),
-      { studioId, email: '' },
-      { merge: true },
-    );
+    // Never touch `email` here — an empty string wiped real addresses and
+    // broke the admin accounts list (owner looked "sem email" while the
+    // login row showed onboarding).
+    transaction.set(userDoc(ownerId), { studioId }, { merge: true });
   });
 
   return { studioId, slug };

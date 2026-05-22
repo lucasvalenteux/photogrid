@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 
 import { auth } from '@/lib/firebase/client';
 import { studioDoc, userDoc } from '@/lib/firebase/firestore';
+import { healUserProfile } from '@/lib/services/user-profile-service';
 import type { StudioDoc, UserDoc } from '@/types';
 
 export type AuthStatus = 'loading' | 'unauthenticated' | 'authenticated';
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return profileData;
     }
 
-    return snap.data();
+    return healUserProfile(firebaseUser, snap.data());
   }, []);
 
   const refreshProfile = React.useCallback(async () => {

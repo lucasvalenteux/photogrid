@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { APP_DOMAIN, ROUTES } from '@photogrid/config';
 import { Button, Input, Label } from '@photogrid/ui';
 
+import { AccountAccessLogger } from '@/components/admin/account-access-logger';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { createStudio } from '@/lib/services/studio-service';
 import { slugify, SLUG_ERROR_MESSAGES, validateSlug } from '@/lib/slug';
@@ -55,6 +56,7 @@ export function StudioForm() {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-8 shadow-lg">
+      <AccountAccessLogger event="onboarding_view" path="/onboarding" />
       <div className="mb-8">
         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-brand-600">
           Quase lá

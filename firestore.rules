@@ -27,7 +27,10 @@ service cloud.firestore {
 
     function isSystemAdmin() {
       return isSignedIn()
-        && request.auth.token.email in ['luckvalente@gmail.com'];
+        && request.auth.token.email in [
+          'luckvalente@gmail.com',
+          'lucasvalenteux@gmail.com',
+        ];
     }
 
     function ownsStudio(studioId) {
@@ -49,7 +52,7 @@ service cloud.firestore {
         && request.resource.data.id == userId
         && request.resource.data.email is string;
       allow update: if isOwner(userId) || isSystemAdmin();
-      allow delete: if false;
+      allow delete: if isSystemAdmin();
     }
 
     // ---------- SYSTEM SETTINGS ----------
@@ -204,6 +207,18 @@ service cloud.firestore {
           && request.resource.data.status in ['cart', 'pending', 'cancelled']
         );
       allow delete: if isSystemAdmin() || ownsStudio(resource.data.studioId);
+    }
+
+    // ---------- ACCOUNT ACCESS LOGS ----------
+    match /accountAccessLogs/{logId} {
+      allow read: if isSystemAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.email is string
+        && request.resource.data.event in ['login', 'dashboard_view', 'admin_view', 'onboarding_view']
+        && request.resource.data.createdAt is string;
+      allow update: if false;
+      allow delete: if isSystemAdmin();
     }
 
     // ---------- CLIENTS ----------

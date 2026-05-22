@@ -3,6 +3,8 @@
 import * as React from 'react';
 import { usePathname } from 'next/navigation';
 
+import { AccountAccessLogger } from '@/components/admin/account-access-logger';
+
 import { DashboardHeader } from './dashboard-header';
 import { Sidebar } from './sidebar';
 
@@ -27,6 +29,7 @@ export function DashboardChrome({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-dvh bg-background">
+      <AccountAccessLogger event="dashboard_view" path={pathname} />
       <Sidebar
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(false)}

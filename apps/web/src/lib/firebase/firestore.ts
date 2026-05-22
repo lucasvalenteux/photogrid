@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 
 import type {
+  AccountAccessLogDoc,
   AlbumDoc,
   ClientDoc,
   FaceClusterDoc,
@@ -45,6 +46,8 @@ export const ordersCollection = () =>
   typedCollection<OrderDoc>(FIRESTORE_COLLECTIONS.orders);
 export const clientsCollection = () =>
   typedCollection<ClientDoc>(FIRESTORE_COLLECTIONS.clients);
+export const accountAccessLogsCollection = () =>
+  typedCollection<AccountAccessLogDoc>(FIRESTORE_COLLECTIONS.accountAccessLogs);
 
 export const userDoc = (id: string) => typedDoc<UserDoc>(FIRESTORE_COLLECTIONS.users, id);
 export const systemSettingsDoc = (id: PlatformSettingsDoc['id']) =>

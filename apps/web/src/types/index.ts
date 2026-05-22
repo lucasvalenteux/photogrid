@@ -15,6 +15,24 @@ export interface UserDoc {
   createdAt: string;
 }
 
+export type AccountAccessEvent =
+  | 'login'
+  | 'dashboard_view'
+  | 'admin_view'
+  | 'onboarding_view';
+
+export interface AccountAccessLogDoc {
+  id: string;
+  userId: string;
+  email: string;
+  event: AccountAccessEvent;
+  /** Route path when the event was recorded. */
+  path?: string | null;
+  studioId?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+}
+
 export interface PlatformSettingsDoc {
   id: 'platform';
   redirectHomeToAutoLogin?: boolean;

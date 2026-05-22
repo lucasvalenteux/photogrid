@@ -15,7 +15,9 @@ import {
   signInOrCreate,
   signInUser,
   toAuthError,
+  type AuthResult,
 } from '@/lib/firebase/auth';
+import { recordAccountAccess } from '@/lib/services/account-access-log-service';
 import {
   lookupEmailExists,
   type EmailLookupResult,
@@ -24,6 +26,9 @@ import { isSystemAdmin } from '@/lib/admin/access';
 
 const MIN_PASSWORD_LENGTH = 8;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 16px avoids iOS Safari auto-zoom on focus, which breaks the layout. */
+const LOGIN_INPUT_CLASS = 'text-center text-base';
 
 type Step = 'email' | 'password';
 
@@ -88,7 +93,12 @@ export function LoginForm() {
   // exit/enter timing.
   React.useEffect(() => {
     const target = step === 'password' ? passwordRef.current : emailRef.current;
-    target?.focus();
+    if (!target) return;
+    // Defer focus on the password step so the step transition finishes
+    // before the mobile keyboard opens — reduces layout jump/zoom glitches.
+    const delay = step === 'password' ? 200 : 0;
+    const id = window.setTimeout(() => target.focus(), delay);
+    return () => window.clearTimeout(id);
   }, [step]);
 
   const loading = submitting || redirecting || resettingPassword;
@@ -117,34 +127,42 @@ export function LoginForm() {
     setSubmitting(true);
     try {
       let outcome: 'signed_in' | 'created';
+      let authResult: AuthResult;
 
       if (emailStatus === 'exists') {
-        outcome = (await signInUser(email, password)).outcome;
+        authResult = await signInUser(email, password);
+        outcome = authResult.outcome;
       } else if (emailStatus === 'new') {
         try {
-          outcome = (await createUser(email, password)).outcome;
+          authResult = await createUser(email, password);
+          outcome = authResult.outcome;
         } catch (createError) {
           if (errorCode(createError) === 'auth/email-already-in-use') {
-            // The lookup told us the email was new, but Firebase
-            // disagrees. Most likely causes:
-            //   * lookup race — account was created in another tab,
-            //   * lookup endpoint returned a false negative.
-            // Whatever the cause, the user's password is still in the
-            // box. Sign in with it transparently so they never have to
-            // notice the recovery.
-            outcome = (await signInUser(email, password)).outcome;
+            authResult = await signInUser(email, password);
+            outcome = authResult.outcome;
             setEmailStatus('exists');
           } else {
             throw createError;
           }
         }
       } else {
-        outcome = (await signInOrCreate(email, password)).outcome;
+        authResult = await signInOrCreate(email, password);
+        outcome = authResult.outcome;
       }
 
       if (outcome === 'created') {
         toast.success('Conta criada! Vamos configurar seu estúdio.');
       }
+
+      void recordAccountAccess({
+        userId: authResult.credential.user.uid,
+        email: authResult.credential.user.email ?? email,
+        event: 'login',
+        path: '/login',
+      }).catch((logError) => {
+        console.warn('[login] access log failed', logError);
+      });
+
       navigateAfterAuth(email);
     } catch (error) {
       const authError = toAuthError(error);
@@ -214,12 +232,21 @@ export function LoginForm() {
         disabled={loading}
       />
 
-      <form onSubmit={onSubmit} className="mx-auto w-full max-w-sm space-y-4" noValidate>
+      <form
+        onSubmit={onSubmit}
+        className="mx-auto flex w-full max-w-sm flex-col items-center space-y-4"
+        noValidate
+      >
         {/* Email field — always rendered. On step 2 it stays hidden
             from view but mounted, so password managers can pair it
             with the password field and we never have to play the
             mount/unmount roulette inside the form. */}
-        <div className={step === 'email' ? 'space-y-1.5 text-center' : 'hidden'}>
+        <div
+          className={
+            step === 'email' ? 'w-full space-y-1.5 text-center' : 'sr-only'
+          }
+          aria-hidden={step !== 'email'}
+        >
           <Label htmlFor="email" className="block">
             Email
           </Label>
@@ -235,6 +262,8 @@ export function LoginForm() {
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="voce@exemplo.com"
+            className={LOGIN_INPUT_CLASS}
+            tabIndex={step === 'email' ? 0 : -1}
           />
         </div>
 
@@ -242,11 +271,11 @@ export function LoginForm() {
           {step === 'password' ? (
             <motion.div
               key="password-fields"
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               transition={{ duration: 0.18, ease: 'easeOut' }}
-              className="space-y-2 text-center"
+              className="w-full space-y-2 text-center"
             >
               <Label htmlFor="password" className="block">
                 {emailStatus === 'new' ? 'Crie uma senha' : 'Sua senha'}
@@ -265,6 +294,7 @@ export function LoginForm() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="Mínimo 8 caracteres"
+                className={LOGIN_INPUT_CLASS}
               />
               <p className="text-xs text-muted-foreground">
                 {emailStatus === 'new'
@@ -289,12 +319,6 @@ export function LoginForm() {
           {buttonLabel}
           {!loading ? <ArrowRight className="size-4" /> : null}
         </Button>
-
-        {step === 'email' ? (
-          <p className="text-center text-xs text-muted-foreground">
-            Sem conta? Criamos uma na próxima tela.
-          </p>
-        ) : null}
       </form>
     </div>
   );

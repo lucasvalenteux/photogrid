@@ -9,6 +9,12 @@ export const APP_DOMAIN = 'photogrid.store' as const;
 export const APP_URL = `https://${APP_DOMAIN}` as const;
 export const SUPPORT_EMAIL = 'hello@photogrid.store' as const;
 
+/** Emails allowed to access /admin and bypass tenant rules server-side. */
+export const SYSTEM_ADMIN_EMAILS = [
+  'luckvalente@gmail.com',
+  'lucasvalenteux@gmail.com',
+] as const;
+
 export const FIRESTORE_COLLECTIONS = {
   users: 'users',
   systemSettings: 'systemSettings',
@@ -46,6 +52,8 @@ export const FIRESTORE_COLLECTIONS = {
   orders: 'orders',
   /** Manual client records created by the studio owner. */
   clients: 'clients',
+  /** Photographer sign-in / dashboard visits — admin read-only. */
+  accountAccessLogs: 'accountAccessLogs',
 } as const;
 
 export type FirestoreCollection =
